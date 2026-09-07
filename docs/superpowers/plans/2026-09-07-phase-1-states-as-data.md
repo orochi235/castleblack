@@ -561,7 +561,7 @@ pure data out, so a golden is a plain JSON compare with no canvas."
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run capture-goldens
 ```
 
-Expected: 50 lines (`1/50 px8-fresh — N commands` … `50/50 px200-tint-colors — N commands`) and 50 files under `lab/src/corpus/goldens/`.
+Expected: 45 lines (`1/45 px8-fresh — N commands` … `45/45 px200-tint-colors — N commands`) and 45 files under `lab/src/corpus/goldens/`. Five cell sizes by nine variants; `tint-status` duplicates `fresh` by design.
 
 - [ ] **Step 2: Eyeball one golden before trusting all fifty**
 
@@ -570,11 +570,12 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data
 head -40 lab/src/corpus/goldens/px120-fresh.json
 ```
 
-Expected: `kind: "sprite"` entries carrying `badges`, `captions` and a
-`borderWidth`; a `kind: "fill"` entry for the out-of-scope cell with
-`shape: "circle"`. If every command is `kind: "fill"` with no badges, the
-fixture's manifest is not matching and the goldens are worthless — fix the
-fixture before continuing.
+Expected: `kind: "sprite"` entries carrying `badges`, `captions` and a `ground`;
+a `kind: "fill"` entry for the out-of-scope cell with `shape: "circle"`, and
+bordered fills carrying `borderWidth`. Only fills carry a border — since
+`eb22311` a drawn cell states its status through `ground` instead. If every
+command is `kind: "fill"` with no badges, the fixture's manifest is not matching
+and the goldens are worthless — fix the fixture before continuing.
 
 - [ ] **Step 3: Write the assertion test**
 
@@ -597,6 +598,14 @@ for (const s of scenarios()) {
 }
 ```
 
+**Known coverage limit.** Out-of-scope, timeout and failed cells carry
+`sha: null` in the fixture, because the sprite branch runs before the state-fill
+branch and ignores state entirely — a baked out-of-scope cell draws as a sprite
+and the circle fill never appears. The cost is that timeout's `#30b0d0` and
+failed's `#e03030` never appear as a sprite `ground`. Both are still asserted as
+bordered fills, so the state table cannot move them undetected; this is recorded
+so nobody reads the gap as an oversight.
+
 `JSON.parse(JSON.stringify(...))` is not ceremony: a `PaintCommand` of kind
 `image` carries a live `CanvasImageSource`, and only the serialized form is
 comparable. No scenario in this fixture supplies `loose` or `vector`, so no
@@ -609,7 +618,7 @@ is added later.
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
-Expected: 50 passed. A failure here means the capture and the assertion
+Expected: 45 passed. A failure here means the capture and the assertion
 disagree about the fixture, which makes the net useless.
 
 - [ ] **Step 5: Prove the net actually catches a change**
@@ -618,11 +627,16 @@ Temporarily break one thing and confirm it fails:
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
-sed -i '' 's/export const THUMB_GROUND = .#ffffff.;/export const THUMB_GROUND = "#ff0000";/' lab/src/corpus/paint.ts
+# paint.ts has no THUMB_GROUND constant: thumbGround() reads
+# --corpus-thumb-ground off the document and falls back to an inline '#ffffff'.
+# Flip that fallback.
+sed -i '' "s/'#ffffff'/'#ff0000'/" lab/src/corpus/paint.ts
 cd lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
-Expected: failures. Then revert:
+Expected: 30 of 45 fail — every scenario containing a sprite. The 15 that pass
+are `tint-year`/`tint-sets`/`tint-colors` at each size, which emit only fills and
+never read the ground. Then revert:
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data && git checkout lab/src/corpus/paint.ts
@@ -964,7 +978,7 @@ Expected: all pass.
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
-Expected: 50 passed. Any failure means a color or border weight moved, and the
+Expected: 45 passed. Any failure means a color or border weight moved, and the
 diff names which scenario.
 
 - [ ] **Step 6: Commit**
@@ -1168,7 +1182,7 @@ site rather than casting `Params` itself.
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
-Expected: 50 passed.
+Expected: 45 passed.
 
 - [ ] **Step 8: Commit**
 
@@ -1256,7 +1270,7 @@ written against the hand-rolled chain.
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
-Expected: 50 passed.
+Expected: 45 passed.
 
 - [ ] **Step 6: Commit**
 
