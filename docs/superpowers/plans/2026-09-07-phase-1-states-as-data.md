@@ -10,6 +10,22 @@
 
 **Why this phase first:** it is the risky edit, and it is the one that can be checked against a working wall. Steps 4–8 change how a color is looked up, in a file the census instrument is being read from daily. The goldens in Tasks 2–3 are what make that survivable, so they come first and are never skipped.
 
+**Where the work happens:** worktree `.claude/worktrees/states-as-data` on branch
+`states-as-data`, forked from `main` at `eb22311`. Four sessions share
+`~/src/brick-icons` and the wall is the file they are most likely to
+touch, so nothing here is done in the shared tree. Run `npm install` in the
+worktree's `lab/` before trusting a test run — a symlinked `node_modules` shares
+`node_modules/.vite`, and a stale cache there serves modules from the wrong tree
+with no error.
+
+**Coordinating with the scene rewrite.** A separate branch, `wall-scene`, replaces
+`Wall.tsx`'s hand-written canvas loop with weasel's scene graph, keeping the old
+loop behind a flag until an interleaved A/B is measured. It does not collide with
+this phase: that work replaces the *drawing*, this one changes the *deciding*, and
+`paintCommands` is the boundary between them. The goldens serve both — they pin
+`paintCommands` across either rewrite. Do not delete the old paint loop from this
+branch; the benchmark needs it alive.
+
 ---
 
 ## Scope
@@ -374,21 +390,24 @@ lightweight port is most likely to diverge."
 - Create: `brick-icons/lab/src/corpus/goldens.fixture.ts`
 - Create: `brick-icons/scripts/capture-paint-goldens.mts`
 
-Captured from a worktree at `HEAD`, not from the working tree — `lab/src/corpus/`
-currently has eight uncommitted files mid-feature, and a golden taken from a
-half-landed change pins half a change.
+Captured in the `states-as-data` worktree directly. When this plan was drafted,
+`lab/src/corpus/` had eight uncommitted files mid-feature and the goldens needed a
+separate worktree at `HEAD` to avoid pinning half a change. That feature has since
+landed in `eb22311` and the directory is clean, so `HEAD` and the working tree
+agree and no extra worktree is required.
 
-- [ ] **Step 1: Create the capture worktree**
+- [ ] **Step 1: Create the working worktree**
 
 ```bash
 cd ~/src/brick-icons
-git worktree add ../brick-icons-goldens HEAD
-cd ../brick-icons-goldens/lab && npm ci
+git worktree add .claude/worktrees/states-as-data -b states-as-data main
+cd .claude/worktrees/states-as-data/lab && npm install
 ```
 
-Expected: a clean tree at `HEAD` with `lab/node_modules` installed. Every
-remaining step in Tasks 2 and 3 runs in `brick-icons-goldens`, and the results
-are copied back.
+`npm install`, not `npm ci` — the worktree needs its own `node_modules`, and a
+symlinked one would share `node_modules/.vite` with the shared tree and serve
+modules from the wrong worktree with no error. Every step in every task from
+here runs in this worktree.
 
 - [ ] **Step 2: Write the scenario fixture**
 
@@ -513,13 +532,13 @@ In `brick-icons/lab/package.json`, add to `scripts`:
 Then install the runner:
 
 ```bash
-cd ~/src/brick-icons-goldens/lab && npm i -D vite-node
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm i -D vite-node
 ```
 
 - [ ] **Step 5: Commit the harness**
 
 ```bash
-cd ~/src/brick-icons-goldens
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/goldens.fixture.ts scripts/capture-paint-goldens.mts lab/package.json lab/package-lock.json
 git commit -m "add a paintCommands golden capture harness
 
@@ -539,7 +558,7 @@ pure data out, so a golden is a plain JSON compare with no canvas."
 - [ ] **Step 1: Run the capture**
 
 ```bash
-cd ~/src/brick-icons-goldens/lab && npm run capture-goldens
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run capture-goldens
 ```
 
 Expected: 50 lines (`1/50 px8-fresh — N commands` … `50/50 px200-tint-colors — N commands`) and 50 files under `lab/src/corpus/goldens/`.
@@ -547,7 +566,7 @@ Expected: 50 lines (`1/50 px8-fresh — N commands` … `50/50 px200-tint-colors
 - [ ] **Step 2: Eyeball one golden before trusting all fifty**
 
 ```bash
-cd ~/src/brick-icons-goldens
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 head -40 lab/src/corpus/goldens/px120-fresh.json
 ```
 
@@ -587,7 +606,7 @@ is added later.
 - [ ] **Step 4: Run the test — it must pass immediately**
 
 ```bash
-cd ~/src/brick-icons-goldens/lab && npx vitest run src/corpus/goldens.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
 Expected: 50 passed. A failure here means the capture and the assertion
@@ -598,7 +617,7 @@ disagree about the fixture, which makes the net useless.
 Temporarily break one thing and confirm it fails:
 
 ```bash
-cd ~/src/brick-icons-goldens
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 sed -i '' 's/export const THUMB_GROUND = .#ffffff.;/export const THUMB_GROUND = "#ff0000";/' lab/src/corpus/paint.ts
 cd lab && npx vitest run src/corpus/goldens.test.ts
 ```
@@ -606,15 +625,15 @@ cd lab && npx vitest run src/corpus/goldens.test.ts
 Expected: failures. Then revert:
 
 ```bash
-cd ~/src/brick-icons-goldens && git checkout lab/src/corpus/paint.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data && git checkout lab/src/corpus/paint.ts
 ```
 
 A golden net nobody has seen fail is not known to be a net.
 
-- [ ] **Step 6: Commit and carry back to the main worktree**
+- [ ] **Step 6: Commit**
 
 ```bash
-cd ~/src/brick-icons-goldens
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/goldens lab/src/corpus/goldens.test.ts
 git commit -m "capture paintCommands goldens across 50 scenarios
 
@@ -622,27 +641,8 @@ The net for the state-table rewrite: paint decisions are pure data, so
 the extraction has to reproduce them exactly rather than look right."
 ```
 
-Then bring the two commits onto the branch the work will happen on:
-
-```bash
-cd ~/src/brick-icons
-git log --oneline -2 ../brick-icons-goldens   # note the two SHAs
-git cherry-pick <harness-sha> <goldens-sha>
-```
-
-Cherry-pick rather than merge, because the main worktree has unrelated
-uncommitted work in the same directory and a merge would want it clean.
-
-- [ ] **Step 7: Confirm the goldens still pass against the working tree**
-
-```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/goldens.test.ts
-```
-
-Expected: 50 passed. **If any fail, stop.** It means the eight uncommitted
-files already change paint behavior, and the golden baseline has to be taken
-from the working tree instead — a decision for the repo owner, not for this
-plan.
+No cherry-pick and no carrying back: the goldens are captured on the branch the
+rest of the phase is built on.
 
 ---
 
@@ -708,7 +708,7 @@ it('matches a cell to the first state whose predicate holds', () => {
 - [ ] **Step 2: Run it to confirm it fails**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/states.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/states.test.ts
 ```
 
 Expected: FAIL — `Failed to resolve import "@lab/corpus/states"`.
@@ -825,7 +825,7 @@ export function paramKeys(s: StateSpec): { fill: string; border: string | null }
 - [ ] **Step 4: Run the test to confirm it passes**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/states.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/states.test.ts
 ```
 
 Expected: 5 passed.
@@ -833,7 +833,7 @@ Expected: 5 passed.
 - [ ] **Step 5: Confirm nothing else moved**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/
 ```
 
 Expected: all pass, including the 50 goldens. Nothing consumes `states.ts` yet,
@@ -842,7 +842,7 @@ so this is a check that adding the file broke nothing.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ~/src/brick-icons
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/states.ts lab/src/corpus/states.test.ts
 git commit -m "add the cell-state table
 
@@ -880,7 +880,7 @@ it('takes every fill and label from the table, not from a second copy', () => {
 - [ ] **Step 2: Run it to confirm it fails**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/palette.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/palette.test.ts
 ```
 
 Expected: FAIL — `STATES` is not imported in the test file yet, then a type
@@ -953,7 +953,7 @@ generated.
 - [ ] **Step 4: Run the palette tests**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/palette.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/palette.test.ts
 ```
 
 Expected: all pass.
@@ -961,7 +961,7 @@ Expected: all pass.
 - [ ] **Step 5: Run the goldens — the real check**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/goldens.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
 Expected: 50 passed. Any failure means a color or border weight moved, and the
@@ -970,7 +970,7 @@ diff names which scenario.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ~/src/brick-icons
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/palette.ts lab/src/corpus/palette.test.ts
 git commit -m "derive the palette from the state table
 
@@ -1022,7 +1022,7 @@ it('gives every color row a label the panel can show', () => {
 - [ ] **Step 2: Run it to confirm it fails**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/params.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/params.test.ts
 ```
 
 Expected: FAIL on the first assertion — `COLOR_PARAM_KEYS` is a hand-written
@@ -1146,7 +1146,7 @@ the wall.
 - [ ] **Step 5: Run params, useParams and ParamsPanel tests**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/params.test.ts src/corpus/useParams.test.ts src/corpus/ParamsPanel.test.tsx
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/params.test.ts src/corpus/useParams.test.ts src/corpus/ParamsPanel.test.tsx
 ```
 
 Expected: all pass.
@@ -1154,7 +1154,7 @@ Expected: all pass.
 - [ ] **Step 6: Typecheck — the index signature is the risk here**
 
 ```bash
-cd ~/src/brick-icons/lab && npm run typecheck
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run typecheck
 ```
 
 Expected: clean. An index signature on `Params` makes every previously-typed
@@ -1165,7 +1165,7 @@ site rather than casting `Params` itself.
 - [ ] **Step 7: Run the goldens**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/goldens.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
 Expected: 50 passed.
@@ -1173,7 +1173,7 @@ Expected: 50 passed.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd ~/src/brick-icons
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/params.ts lab/src/corpus/params.test.ts lab/src/corpus/useParams.ts
 git commit -m "generate the params color rows from the state table
 
@@ -1215,7 +1215,7 @@ it('reads its precedence from the table rather than a private chain', () => {
 - [ ] **Step 2: Run it to confirm it fails**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/paint.test.ts -t "precedence"
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/paint.test.ts -t "precedence"
 ```
 
 Expected: FAIL — `@lab/corpus/states` exports `BY_PRECEDENCE`, but
@@ -1244,7 +1244,7 @@ unconditionally and sorts last. `states.test.ts` pins both facts.
 - [ ] **Step 4: Run the paint tests**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/paint.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/paint.test.ts
 ```
 
 Expected: all pass, including the existing precedence assertions that were
@@ -1253,7 +1253,7 @@ written against the hand-rolled chain.
 - [ ] **Step 5: Run the goldens**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/goldens.test.ts
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
 ```
 
 Expected: 50 passed.
@@ -1261,7 +1261,7 @@ Expected: 50 passed.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ~/src/brick-icons
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/paint.ts lab/src/corpus/paint.test.ts
 git commit -m "resolve a cell's state through the table's precedence order
 
@@ -1320,7 +1320,7 @@ it('names each row with the table\'s own label', () => {
 - [ ] **Step 2: Run it — it should pass without touching Legend.tsx**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/Legend.test.tsx
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/Legend.test.tsx
 ```
 
 Expected: all pass. **If it fails**, the component grew its own copy of the
@@ -1338,7 +1338,7 @@ rather than making it optional.
 - [ ] **Step 4: Run the whole corpus directory**
 
 ```bash
-cd ~/src/brick-icons/lab && npx vitest run src/corpus/
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/
 ```
 
 Expected: everything passes, goldens included. This is the phase's own gate,
@@ -1347,7 +1347,7 @@ and it is one directory — not the repo suite.
 - [ ] **Step 5: Typecheck**
 
 ```bash
-cd ~/src/brick-icons/lab && npm run typecheck
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run typecheck
 ```
 
 Expected: clean.
@@ -1355,7 +1355,7 @@ Expected: clean.
 - [ ] **Step 6: Look at the wall**
 
 ```bash
-cd ~/src/brick-icons/lab && npm run dev
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run dev
 ```
 
 Open `http://localhost:5178/corpus.html`. Confirm by eye: legend rows in the
@@ -1369,20 +1369,24 @@ property path, which is the one thing in this phase they cannot cover.
 Only now, once, before pushing:
 
 ```bash
-cd ~/src/brick-icons/lab && npm test
-cd ~/src/brick-icons && python -m pytest -q
+cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm test
 ```
+
+The lab suite only, and only once. This phase changes no Python — a TypeScript
+edit cannot move the pytest suite, and running it would take cores off the four
+other sessions on this box for no evidence. Check first with `ps` that nobody
+else is mid-run before starting even this one.
 
 - [ ] **Step 8: Commit and clean up the worktree**
 
 ```bash
-cd ~/src/brick-icons
+cd ~/src/brick-icons/.claude/worktrees/states-as-data
 git add lab/src/corpus/Legend.test.tsx
 git commit -m "pin the legend's rows to the state table's order
 
 Legend already read CELL_STATES and STATE_LABEL, so this is the test
 that keeps it that way now those two are generated."
-git worktree remove ../brick-icons-goldens
+git worktree remove .claude/worktrees/states-as-data   # only after the branch is merged
 ```
 
 ---
