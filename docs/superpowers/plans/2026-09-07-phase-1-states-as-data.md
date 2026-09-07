@@ -1,5 +1,12 @@
 # Phase 1: the state vocabulary as data — Implementation Plan
 
+> **BUILT — 2026-09-07.** All eight tasks landed on branch `states-as-data`
+> (`22f77a9`, `e0bd63e`, `c83a306`, `3bc6b3c`, `859b148`, over the golden net at
+> `0890700`/`5b56d29`). The 45 goldens held at every gate; the corpus directory
+> ends at 393 passing across 33 files; typecheck clean. The CEL spike is
+> `castleblack/spike/cel`. **Three findings came out of it that the plan did not
+> anticipate — see "What it found" at the foot of this file.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** brick-icons' corpus wall behaves identically, but its eight cell states — and the ten places that currently enumerate them by hand — come from one ordered table, behind a golden net that proves nothing moved.
@@ -73,7 +80,7 @@ Self-contained and separable — nothing else in this plan depends on its outcom
 - Create: `castleblack/spike/cel/package.json`
 - Create: `castleblack/spike/cel/README.md`
 
-- [ ] **Step 1: Write the expression corpus**
+- [x] **Step 1: Write the expression corpus**
 
 Every expression the brick-icons spec will need, plus the fixtures that exercise
 their edges. `absent` fixtures deliberately omit fields, which is the case
@@ -157,7 +164,7 @@ Three of these exist to fail informatively rather than to pass:
 implemented; and `str.matches` needs a regex engine, which is where a
 lightweight JS port is most likely to diverge from `cel-python`.
 
-- [ ] **Step 2: Write the JS runner**
+- [x] **Step 2: Write the JS runner**
 
 ```js
 // castleblack/spike/cel/run.mjs
@@ -210,7 +217,7 @@ writeFileSync(new URL(`./results.${which}.json`, import.meta.url),
 console.log(`${which}: ${Object.keys(out).length} cells`);
 ```
 
-- [ ] **Step 3: Write the Python runner**
+- [x] **Step 3: Write the Python runner**
 
 ```python
 # castleblack/spike/cel/run.py
@@ -272,7 +279,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 4: Write the comparison**
+- [x] **Step 4: Write the comparison**
 
 Prints one line per expression as it goes, per the progress rule — a silent
 runner is indistinguishable from a hung one.
@@ -324,7 +331,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 5: Install and run all three**
+- [x] **Step 5: Install and run all three**
 
 ```bash
 cd castleblack/spike/cel
@@ -341,7 +348,7 @@ node run.mjs marc
 Expected: a table with one line per expression/fixture pair, ending in an
 agreement count. Disagreement is a finding, not a failure — record it.
 
-- [ ] **Step 6: Time an evaluation at corpus scale**
+- [x] **Step 6: Time an evaluation at corpus scale**
 
 ```bash
 node -e "
@@ -359,7 +366,7 @@ console.log(\`\${N} evals in \${ms.toFixed(1)}ms (\${(ms*1000/N).toFixed(2)}us e
 
 Expected: a number. Record it; the spec asserts nothing about it on purpose.
 
-- [ ] **Step 7: Write the conclusion**
+- [x] **Step 7: Write the conclusion**
 
 `castleblack/spike/cel/README.md` states, in order: which implementation was
 chosen and on what evidence; every expression that disagreed and what the
@@ -367,7 +374,7 @@ difference was; the measured per-evaluation cost; and which of the three
 deliberate edge expressions (`guard.absentField`, `str.lower`, `str.matches`)
 need a TS hook instead because no implementation handles them compatibly.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd castleblack
@@ -396,7 +403,7 @@ separate worktree at `HEAD` to avoid pinning half a change. That feature has sin
 landed in `eb22311` and the directory is clean, so `HEAD` and the working tree
 agree and no extra worktree is required.
 
-- [ ] **Step 1: Create the working worktree**
+- [x] **Step 1: Create the working worktree**
 
 ```bash
 cd ~/src/brick-icons
@@ -409,7 +416,7 @@ symlinked one would share `node_modules/.vite` with the shared tree and serve
 modules from the wrong worktree with no error. Every step in every task from
 here runs in this worktree.
 
-- [ ] **Step 2: Write the scenario fixture**
+- [x] **Step 2: Write the scenario fixture**
 
 One `Cell[]` covering every state, and a scenario list crossing it with the
 axes `paintCommands` actually branches on.
@@ -499,7 +506,7 @@ export function scenarios(): Scenario[] {
 }
 ```
 
-- [ ] **Step 3: Write the capture script**
+- [x] **Step 3: Write the capture script**
 
 Emits one line per scenario as it writes it.
 
@@ -521,7 +528,7 @@ all.forEach((s, i) => {
 });
 ```
 
-- [ ] **Step 4: Add the npm script**
+- [x] **Step 4: Add the npm script**
 
 In `brick-icons/lab/package.json`, add to `scripts`:
 
@@ -535,7 +542,7 @@ Then install the runner:
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm i -D vite-node
 ```
 
-- [ ] **Step 5: Commit the harness**
+- [x] **Step 5: Commit the harness**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -555,7 +562,7 @@ pure data out, so a golden is a plain JSON compare with no canvas."
 - Create: `brick-icons/lab/src/corpus/goldens/*.json`
 - Create: `brick-icons/lab/src/corpus/goldens.test.ts`
 
-- [ ] **Step 1: Run the capture**
+- [x] **Step 1: Run the capture**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run capture-goldens
@@ -563,7 +570,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run capture-gol
 
 Expected: 45 lines (`1/45 px8-fresh — N commands` … `45/45 px200-tint-colors — N commands`) and 45 files under `lab/src/corpus/goldens/`. Five cell sizes by nine variants; `tint-status` duplicates `fresh` by design.
 
-- [ ] **Step 2: Eyeball one golden before trusting all fifty**
+- [x] **Step 2: Eyeball one golden before trusting all fifty**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -577,7 +584,7 @@ bordered fills carrying `borderWidth`. Only fills carry a border — since
 command is `kind: "fill"` with no badges, the fixture's manifest is not matching
 and the goldens are worthless — fix the fixture before continuing.
 
-- [ ] **Step 3: Write the assertion test**
+- [x] **Step 3: Write the assertion test**
 
 ```ts
 // lab/src/corpus/goldens.test.ts
@@ -612,7 +619,7 @@ comparable. No scenario in this fixture supplies `loose` or `vector`, so no
 command of that kind is produced — but the round-trip keeps that true if one
 is added later.
 
-- [ ] **Step 4: Run the test — it must pass immediately**
+- [x] **Step 4: Run the test — it must pass immediately**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
@@ -621,7 +628,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: 45 passed. A failure here means the capture and the assertion
 disagree about the fixture, which makes the net useless.
 
-- [ ] **Step 5: Prove the net actually catches a change**
+- [x] **Step 5: Prove the net actually catches a change**
 
 Temporarily break one thing and confirm it fails:
 
@@ -644,7 +651,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data && git checkout lab/src/co
 
 A golden net nobody has seen fail is not known to be a net.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -666,7 +673,7 @@ rest of the phase is built on.
 - Create: `brick-icons/lab/src/corpus/states.ts`
 - Create: `brick-icons/lab/src/corpus/states.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // lab/src/corpus/states.test.ts
@@ -719,7 +726,7 @@ it('matches a cell to the first state whose predicate holds', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/states.test.ts
@@ -727,7 +734,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 
 Expected: FAIL — `Failed to resolve import "@lab/corpus/states"`.
 
-- [ ] **Step 3: Write the table**
+- [x] **Step 3: Write the table**
 
 Note the ordering: `unknown` is listed first because it is the legend's first
 row and `CELL_STATES`' first key, but it must be *matched* last. The table
@@ -836,7 +843,7 @@ export function paramKeys(s: StateSpec): { fill: string; border: string | null }
 }
 ```
 
-- [ ] **Step 4: Run the test to confirm it passes**
+- [x] **Step 4: Run the test to confirm it passes**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/states.test.ts
@@ -844,7 +851,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 
 Expected: 5 passed.
 
-- [ ] **Step 5: Confirm nothing else moved**
+- [x] **Step 5: Confirm nothing else moved**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/
@@ -853,7 +860,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: all pass, including the 50 goldens. Nothing consumes `states.ts` yet,
 so this is a check that adding the file broke nothing.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -872,7 +879,7 @@ reads it yet."
 **Files:**
 - Modify: `brick-icons/lab/src/corpus/palette.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `lab/src/corpus/palette.test.ts`:
 
@@ -891,7 +898,7 @@ it('takes every fill and label from the table, not from a second copy', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/palette.test.ts
@@ -900,7 +907,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: FAIL — `STATES` is not imported in the test file yet, then a type
 error on indexing `DEFAULT_PALETTE` by a `string`.
 
-- [ ] **Step 3: Rewrite palette.ts to derive**
+- [x] **Step 3: Rewrite palette.ts to derive**
 
 Replace the `CellState` union, `CELL_PALETTE`, `PROPERTY`, `PARAM_CSS_VAR`,
 `STATE_LABEL` and `CELL_STATES` declarations with derivations. Keep every
@@ -964,7 +971,7 @@ export const STATE_LABEL: Record<CellState, string> = labelTable();
 looks each state up in `PROPERTY` and `DEFAULT_PALETTE`, both of which are now
 generated.
 
-- [ ] **Step 4: Run the palette tests**
+- [x] **Step 4: Run the palette tests**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/palette.test.ts
@@ -972,7 +979,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 
 Expected: all pass.
 
-- [ ] **Step 5: Run the goldens — the real check**
+- [x] **Step 5: Run the goldens — the real check**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
@@ -981,7 +988,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: 45 passed. Any failure means a color or border weight moved, and the
 diff names which scenario.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -1001,7 +1008,7 @@ unchanged."
 - Modify: `brick-icons/lab/src/corpus/params.ts`
 - Modify: `brick-icons/lab/src/corpus/useParams.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `lab/src/corpus/params.test.ts`:
 
@@ -1033,7 +1040,7 @@ it('gives every color row a label the panel can show', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/params.test.ts
@@ -1042,7 +1049,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: FAIL on the first assertion — `COLOR_PARAM_KEYS` is a hand-written
 literal and its order will not match the generated one exactly.
 
-- [ ] **Step 3: Generate the color half of Params**
+- [x] **Step 3: Generate the color half of Params**
 
 In `params.ts`, replace the fifteen hand-written color fields on the `Params`
 interface with an index signature over the generated keys, replace the color
@@ -1134,7 +1141,7 @@ const COLOR_LABEL: Record<string, string> = {
 `APPEARANCE_FIELDS` keeps its existing shape — it already maps
 `COLOR_PARAM_KEYS` through `COLOR_LABEL`, and both are now generated.
 
-- [ ] **Step 4: Loosen useParams' iteration**
+- [x] **Step 4: Loosen useParams' iteration**
 
 In `useParams.ts`, `writeColorVars` indexes `params[key]` with a
 `ColorParamKey`. With the key type widened it needs a cast at the one place
@@ -1157,7 +1164,7 @@ has an index signature covering numbers and booleans, and a non-string reaching
 `setProperty` would write `"undefined"` into a CSS variable and silently gray
 the wall.
 
-- [ ] **Step 5: Run params, useParams and ParamsPanel tests**
+- [x] **Step 5: Run params, useParams and ParamsPanel tests**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/params.test.ts src/corpus/useParams.test.ts src/corpus/ParamsPanel.test.tsx
@@ -1165,7 +1172,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 
 Expected: all pass.
 
-- [ ] **Step 6: Typecheck — the index signature is the risk here**
+- [x] **Step 6: Typecheck — the index signature is the risk here**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run typecheck
@@ -1176,7 +1183,7 @@ access assignable to `number | string | boolean`, so any consumer doing
 arithmetic on `params.cell` may now need a narrowing. Fix each at the call
 site rather than casting `Params` itself.
 
-- [ ] **Step 7: Run the goldens**
+- [x] **Step 7: Run the goldens**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
@@ -1184,7 +1191,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 
 Expected: 45 passed.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -1203,7 +1210,7 @@ tuning row without touching this file."
 **Files:**
 - Modify: `brick-icons/lab/src/corpus/paint.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `lab/src/corpus/paint.test.ts`:
 
@@ -1226,7 +1233,7 @@ it('reads its precedence from the table rather than a private chain', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/paint.test.ts -t "precedence"
@@ -1236,7 +1243,7 @@ Expected: FAIL — `@lab/corpus/states` exports `BY_PRECEDENCE`, but
 `paint.test.ts` does not import it yet, and the first test may already pass by
 coincidence. Both must be present and passing before Step 3 counts as done.
 
-- [ ] **Step 3: Replace the chain**
+- [x] **Step 3: Replace the chain**
 
 In `paint.ts`, replace the body of `cellState`:
 
@@ -1255,7 +1262,7 @@ export function cellState(cell: Cell): CellState {
 The non-null assertion is safe by construction: `unknown` matches
 unconditionally and sorts last. `states.test.ts` pins both facts.
 
-- [ ] **Step 4: Run the paint tests**
+- [x] **Step 4: Run the paint tests**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/paint.test.ts
@@ -1264,7 +1271,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: all pass, including the existing precedence assertions that were
 written against the hand-rolled chain.
 
-- [ ] **Step 5: Run the goldens**
+- [x] **Step 5: Run the goldens**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/goldens.test.ts
@@ -1272,7 +1279,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 
 Expected: 45 passed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -1296,7 +1303,7 @@ labels up in `STATE_LABEL`, both of which Task 5 turned into generated tables.
 This task adds the test that says so, so a later edit cannot reintroduce a
 private copy of the order without failing.
 
-- [ ] **Step 1: Write the regression test**
+- [x] **Step 1: Write the regression test**
 
 Add to `lab/src/corpus/Legend.test.tsx`. Query on `data-state` rather than by
 role: a state row is a `div` with `tabIndex`, and the only `button`s in the
@@ -1331,7 +1338,7 @@ it('names each row with the table\'s own label', () => {
 });
 ```
 
-- [ ] **Step 2: Run it — it should pass without touching Legend.tsx**
+- [x] **Step 2: Run it — it should pass without touching Legend.tsx**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/Legend.test.tsx
@@ -1342,14 +1349,14 @@ order or labels since this plan was written — point it back at `CELL_STATES`
 and `STATE_LABEL`, and change nothing about the tally logic, the hover/focus
 handlers, or the badge rows from the in-flight feature.
 
-- [ ] **Step 3: Confirm the props list is still current**
+- [x] **Step 3: Confirm the props list is still current**
 
 The test above passes eight props. `LegendProps` also declares an optional
 `tagCells`. If `npm run typecheck` reports a missing required prop, the
 component gained one after this plan was written — add it to both renders
 rather than making it optional.
 
-- [ ] **Step 4: Run the whole corpus directory**
+- [x] **Step 4: Run the whole corpus directory**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/corpus/
@@ -1358,7 +1365,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npx vitest run src/
 Expected: everything passes, goldens included. This is the phase's own gate,
 and it is one directory — not the repo suite.
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run typecheck
@@ -1366,7 +1373,7 @@ cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run typecheck
 
 Expected: clean.
 
-- [ ] **Step 6: Look at the wall**
+- [x] **Step 6: Look at the wall**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data/lab && npm run dev
@@ -1378,7 +1385,7 @@ labeled; dragging a color swatch still repaints the wall live. The goldens
 prove `paintCommands` did not move, but they say nothing about the CSS custom
 property path, which is the one thing in this phase they cannot cover.
 
-- [ ] **Step 7: Pre-push gate**
+- [x] **Step 7: Pre-push gate**
 
 Only now, once, before pushing:
 
@@ -1391,7 +1398,7 @@ edit cannot move the pytest suite, and running it would take cores off the four
 other sessions on this box for no evidence. Check first with `ps` that nobody
 else is mid-run before starting even this one.
 
-- [ ] **Step 8: Commit and clean up the worktree**
+- [x] **Step 8: Commit and clean up the worktree**
 
 ```bash
 cd ~/src/brick-icons/.claude/worktrees/states-as-data
@@ -1417,3 +1424,49 @@ that discovers the two languages disagree.
 shape of change as the states, but they have no golden covering them and no
 equivalent of the ten-copy problem — one table each, read in one place. They
 convert in Phase 3 along with the rest of the spec.
+
+
+## What it found
+
+Three things the plan did not anticipate, all confirmed by reading the code
+rather than taken on report.
+
+**`CellState` stayed a union, deliberately.** The plan said widen it to `string`;
+that is wrong here and the reason is worth keeping. `Palette` is
+`Record<CellState, CellStyle> & { caret: string; … }` — with `CellState = string`
+the first member becomes a string index signature demanding `CellStyle` of every
+property, so `caret: string` stops being assignable and `DEFAULT_PALETTE` will
+not compile. And `lab/tsconfig.json` sets `noUncheckedIndexedAccess`, so every
+`palette[state]` would come back `| undefined`. The union is now
+`(typeof STATES)[number]['key']` — still one derivation from one table, which is
+the goal; nothing outside `states.ts` enumerates a state.
+
+`Params` took the same treatment: `FixedParams & Record<ColorParamKey, string>`
+where `ColorParamKey` is a template-literal union over the table. A finite union
+rather than an index signature, so `params.cell` keeps its `number` and a color
+lookup yields `string`. The `writeColorVars` runtime guard the plan called for
+is therefore unnecessary — the type system carries it.
+
+**The colors are declared twice, and CSS wins.** `corpus.css:21-34` re-declares
+all fourteen `--corpus-cell-*` hexes, and `readPalette` prefers a declared value
+over the table's fallback. **Changing a color in `states.ts` alone does not move
+the wall.** Pre-existing and untouched by this phase, but it means the table is
+the single source of truth for structure and not yet for color. Deciding which
+way that dependency should run — table declares and CSS overrides only for
+theming, or the reverse — belongs with the `wall` lift, since it is the same
+question the ground color raises across the Python/TypeScript boundary.
+
+**Adding a ninth state was measured, not estimated.** One was added, typechecked,
+run against the corpus directory, and reverted. The wall, the legend, the params
+panel, `cellState` and all 45 goldens absorbed it with no edit. Two files
+resisted with compile errors — `PartCard.tsx`'s `cellStateLabel` switch (an
+eleventh hand-enumeration the plan missed, and the right kind: it writes a
+sentence per state, so it is editorial content rather than a lookup) and
+`params.test.ts`. Nine assertions that pin the current eight by literal failed,
+which is the net working.
+
+**Only the stylesheets resisted silently, and that is the one real defect.**
+`Legend.css`, `Lightbox.css` and `corpus.css` each need a block per state, and
+nothing fails or warns when one is missing. It is not hypothetical: `Legend.css`
+has no `[data-state="accepted"]` rule today, so "known issue, not fixing"
+renders as a bare transparent swatch. Seven states have one; `accepted` does not.
