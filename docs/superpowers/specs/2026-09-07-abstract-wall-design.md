@@ -100,11 +100,10 @@ the trap being extracted away from.
 ## Data flow
 
 CEL runs **once per item per data load** — never per frame, never per filter
-click. Per-evaluation cost is unmeasured; the spike in step 1 measures it over
-the real corpus size. The design does not depend on the number, because deriving
-once is right at any plausible cost: a per-frame `states.match` walk over the
-visible set cannot be cheaper than a column read, and a per-click re-filter over
-24,591 items cannot be cheaper than filtering precomputed booleans.
+click. Measured with `@bufbuild/cel` on Node 26, one compiled predicate over
+24,591 items costs **32 ms, about 1.3 µs each** — roughly two frames. That is
+fine on a filter change and far too slow during a pan, which is the whole reason
+results are derived into a facts table and read as columns thereafter.
 
 ```
 spec (JSON + hooks)
@@ -238,10 +237,11 @@ gate.
 
 ## Order of work
 
-1. **CEL conformance spike.** Write the expressions the spec needs; run them
-   through `@bufbuild/cel`, `@marcbachmann/cel-js` and `cel-python`; pick on
-   agreement rather than on bundle size, and time an evaluation over 24,591
-   items while there. Promote to a permanent test.
+1. ~~**CEL conformance spike.**~~ **Done** — `spike/cel/`, see Open below. It
+   also carries the lesson that a conformance corpus only catches what someone
+   thought to write down: the corpus passed both candidates, and the probe that
+   separated them (`regex-probe.mjs` / `regex-probe.py`) had to be written after
+   the corpus came back clean.
 2. **Capture paint goldens** from brick-icons as it stands.
 3. **States to a table**, in place in brick-icons, still with the LEGO table.
    Goldens must not move. This is the risky edit and it happens where it can be
@@ -257,7 +257,26 @@ gate.
 the README title. Deciding it late costs a directory rename and an import path
 sweep.
 
-**CEL implementation**, settled by step 1.
+**CEL implementation: settled — `@bufbuild/cel`.** Not on the expression corpus,
+which failed to separate the candidates: both JS implementations agreed with
+`cel-python` on 105 of 108 cells. It was settled on the regex engine.
+`cel-python` and `@bufbuild/cel` both use RE2; `@marcbachmann/cel-js` hands the
+pattern to JavaScript's `RegExp`, and the two diverge in both directions —
+`(?i)brick` works under RE2 and throws under `RegExp`, while `^(?!_).*` is a
+valid JS lookahead that RE2 rejects. A pattern that works in the browser and
+throws in the feed is exactly the failure the shared schema exists to prevent,
+and it surfaces only when someone writes that pattern. The cost of the choice is
+real and worth stating: `@bufbuild/cel` is ~4x slower per evaluation and pulls
+10.6 MB of dependencies against 272 KB and none, which will matter if the wall's
+bundle size ever binds.
+
+**Two expressions need host support, neither of them a TypeScript hook.**
+`lowerAscii` is a CEL string extension rather than core: `@bufbuild/cel` has it
+via the `strings` bundle from `@bufbuild/cel/ext`, and `cel-python` needs it
+registered as a host function (`env.program(ast, functions={...})`, verified to
+return the same string). Reading a field an item omits errors identically in all
+three, and `has()`-guarding returns `false` in all three — so that is a
+schema-authoring rule, not code.
 
 **Timing.** The earlier writeup argued for waiting until the census stops
 landing renders, on the grounds that the wall is the instrument being used to
