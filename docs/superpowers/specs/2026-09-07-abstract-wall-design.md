@@ -100,9 +100,11 @@ the trap being extracted away from.
 ## Data flow
 
 CEL runs **once per item per data load** — never per frame, never per filter
-click. A compiled program is roughly a microsecond per evaluation, so at 24,591
-items a naive per-click re-filter is tens of milliseconds of jank per predicate,
-and a per-frame `states.match` walk is out of the question.
+click. Per-evaluation cost is unmeasured; the spike in step 1 measures it over
+the real corpus size. The design does not depend on the number, because deriving
+once is right at any plausible cost: a per-frame `states.match` walk over the
+visible set cannot be cheaper than a column read, and a per-click re-filter over
+24,591 items cannot be cheaper than filtering precomputed booleans.
 
 ```
 spec (JSON + hooks)
@@ -234,7 +236,8 @@ gate.
 
 1. **CEL conformance spike.** Write the expressions the spec needs; run them
    through `@bufbuild/cel`, `@marcbachmann/cel-js` and `cel-python`; pick on
-   agreement rather than on bundle size. Promote to a permanent test.
+   agreement rather than on bundle size, and time an evaluation over 24,591
+   items while there. Promote to a permanent test.
 2. **Capture paint goldens** from brick-icons as it stands.
 3. **States to a table**, in place in brick-icons, still with the LEGO table.
    Goldens must not move. This is the risky edit and it happens where it can be
