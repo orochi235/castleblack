@@ -152,12 +152,16 @@ The four splits are the work:
 
 **`paint`** keeps `paintCommands` and every geometry helper. The deciders leave.
 
-**`palette` + `params`** are the expensive half. Eight states are hand-enumerated
-five times today — the union, `CELL_PALETTE`, `PROPERTY`'s CSS variable names,
-`PARAM_CSS_VAR` and `STATE_LABEL`. All of it derives from `states` instead, and
-the params panel's color rows generate from that list rather than from a fixed
-`ColorParamKey`. This single change touches `palette.ts`, `params.ts`,
-`useParams.ts`, `ParamsPanel.tsx`, `Legend.tsx` and every test over them.
+**`palette` + `params`** are the expensive half. The eight states are
+hand-enumerated **ten times**: in `palette.ts` the `CellState` union,
+`CELL_PALETTE`, `PROPERTY`'s CSS variable names, `PARAM_CSS_VAR` and
+`STATE_LABEL`; in `params.ts` the `Params` color fields, their
+`DEFAULT_PARAMS` values, `COLOR_PARAM_KEYS` and `COLOR_LABEL`; and in
+`paint.ts` the `cellState` precedence chain. All of it derives from `states`
+instead, and the params panel's color rows generate from that list rather than
+from a fixed `ColorParamKey`. This single change touches `palette.ts`,
+`params.ts`, `useParams.ts`, `ParamsPanel.tsx`, `paint.ts`, `Legend.tsx` and
+every test over them.
 
 **`select`** loses `SORTS`, `FILTERS`, `CLASSES`, `KEEP` and `key` — every one is
 a LEGO field name. The machinery stays and reads the spec.
