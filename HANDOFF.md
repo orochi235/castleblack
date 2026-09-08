@@ -19,7 +19,9 @@ pushed anywhere; castleblack has no remote.
 
 **`brick-icons`** — Phase 1 lives on branch `states-as-data`, worktree
 `.claude/worktrees/states-as-data`, forked from `main` at `eb22311`. Seven
-commits, `0890700` through `859b148`. **Not merged.** The worktree has its own
+commits, `0890700` through `5f33804`. **Not merged, not pushed.** The states
+are one table (`states.ts`), the sorts/filters/classes another
+(`criteria.ts`), behind 45 `paintCommands` goldens. The worktree has its own
 `node_modules`; never symlink it, because a shared `node_modules/.vite` serves
 modules from the wrong tree with no error.
 
@@ -56,32 +58,36 @@ that usually has someone else's suite on it.
 re-declares all fourteen `--corpus-cell-*` hexes and `readPalette` prefers a
 declared value, so editing a color in `states.ts` alone will not move the wall.
 
-## In flight
+## The trap the selection work found
 
-**The selection vocabulary is being given the same treatment as the states** —
-`select.ts`'s `SORTS`, `FILTERS` and `CLASSES` becoming declarative tables, on
-the same `states-as-data` branch. One difference worth knowing: the goldens do
-not cover `applySelection`, so `select.test.ts` is the only net, and that work
-starts by auditing it rather than trusting it.
+**A ninth hidden class fails silently across three layers, and only one of them
+is TypeScript.** Adding one to `criteria.ts` gets you the type, the default, the
+checkbox and the filtering. But `lab/src/stats/workingSet.ts` keeps a
+hand-written parallel copy — `moved` and `outOfScope` as *named fields* — and
+serializes exactly those two into the URL, which `brick_icons/lab/app.py`'s
+`get_corpus_stats(kind, moved, out_of_scope, …)` receives as named parameters.
+A ninth class is invisible to all of it. Nothing errors; the stats page simply
+keeps counting parts the wall has begun hiding.
 
-Also queued, needing the worktree free: brick-icons' `HANDOFF.md` has a stale
-paragraph (around line 1862) pointing at `~/src/castleblack/wall/README.md`,
-saying nothing is built and that the extraction should wait for the census. The
-file was superseded — it is only in git history at `a1fffd0` — and Phase 1 is
-built.
+It cannot be derived away as things stand, because that shape is a URL and an
+API contract rather than a UI list. It is the sharpest argument yet for the
+spec's schema: this is the same class list written down three times in two
+languages, which is exactly what a shared CEL-backed spec exists to stop.
 
 ## Next
 
 1. **Decide whether Phase 1 merges to `brick-icons` `main`** — it is green and
    self-contained, but it is also a large diff in a file other sessions touch.
-2. **Fix the `accepted` legend swatch.** `Legend.css` has a
+2. **Decide what to do about the stats page's parallel class list** — see the
+   trap above. It crosses into Python, so it is bigger than a cleanup.
+3. **Fix the `accepted` legend swatch.** `Legend.css` has a
    `[data-state=...]` rule for seven of the eight states; "known issue, not
    fixing" renders as a bare transparent box. One CSS block. Found during Phase 1
    and deliberately left, because that phase was a pure refactor.
-3. **Phase 2 — lift `bakery`** (Python): `thumbs.py` nearly whole, plus a
+4. **Phase 2 — lift `bakery`** (Python): `thumbs.py` nearly whole, plus a
    mountable route module, the ground color moving into the manifest, and a
    single-writer lock. No plan written yet.
-4. Phases 3 and 4 — lift `wall`, then the demo host and switchover. Order and
+5. Phases 3 and 4 — lift `wall`, then the demo host and switchover. Order and
    scope are in the spec's "Order of work".
 
 The stylesheets are the one thing in this design that fails silently when a
