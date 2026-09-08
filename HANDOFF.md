@@ -17,13 +17,13 @@ pushed anywhere; castleblack has no remote.
   `.venv` are gitignored, so reinstall before running (`README.md` has the
   commands).
 
-**`brick-icons`** — Phase 1 lives on branch `states-as-data`, worktree
-`.claude/worktrees/states-as-data`, forked from `main` at `eb22311`. Seven
-commits, `0890700` through `5f33804`. **Not merged, not pushed.** The states
-are one table (`states.ts`), the sorts/filters/classes another
-(`criteria.ts`), behind 45 `paintCommands` goldens. The worktree has its own
-`node_modules`; never symlink it, because a shared `node_modules/.vite` serves
-modules from the wrong tree with no error.
+**`brick-icons`** — **merged to `main` at `bc3f3f9`** on 2026-09-07. The branch
+and its worktree are gone. The cell states are one table (`states.ts`), the
+sorts/filters/classes another (`criteria.ts`), behind 45 `paintCommands`
+goldens. The full lab suite passed at the merge: 862 tests, 78 files.
+
+**`main` is 15 commits ahead of `origin/main` and was not pushed** — that was
+not asked for, and most of those commits belong to other sessions.
 
 ## What is decided that the code does not say
 
@@ -76,18 +76,16 @@ languages, which is exactly what a shared CEL-backed spec exists to stop.
 
 ## Next
 
-1. **Decide whether Phase 1 merges to `brick-icons` `main`** — it is green and
-   self-contained, but it is also a large diff in a file other sessions touch.
-2. **Decide what to do about the stats page's parallel class list** — see the
+1. **Decide what to do about the stats page's parallel class list** — see the
    trap above. It crosses into Python, so it is bigger than a cleanup.
-3. **Fix the `accepted` legend swatch.** `Legend.css` has a
+2. **Fix the `accepted` legend swatch.** `Legend.css` has a
    `[data-state=...]` rule for seven of the eight states; "known issue, not
    fixing" renders as a bare transparent box. One CSS block. Found during Phase 1
    and deliberately left, because that phase was a pure refactor.
-4. **Phase 2 — lift `bakery`** (Python): `thumbs.py` nearly whole, plus a
+3. **Phase 2 — lift `bakery`** (Python): `thumbs.py` nearly whole, plus a
    mountable route module, the ground color moving into the manifest, and a
    single-writer lock. No plan written yet.
-5. Phases 3 and 4 — lift `wall`, then the demo host and switchover. Order and
+4. Phases 3 and 4 — lift `wall`, then the demo host and switchover. Order and
    scope are in the spec's "Order of work".
 
 The stylesheets are the one thing in this design that fails silently when a
