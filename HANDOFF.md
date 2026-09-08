@@ -56,6 +56,20 @@ that usually has someone else's suite on it.
 re-declares all fourteen `--corpus-cell-*` hexes and `readPalette` prefers a
 declared value, so editing a color in `states.ts` alone will not move the wall.
 
+## In flight
+
+**The selection vocabulary is being given the same treatment as the states** —
+`select.ts`'s `SORTS`, `FILTERS` and `CLASSES` becoming declarative tables, on
+the same `states-as-data` branch. One difference worth knowing: the goldens do
+not cover `applySelection`, so `select.test.ts` is the only net, and that work
+starts by auditing it rather than trusting it.
+
+Also queued, needing the worktree free: brick-icons' `HANDOFF.md` has a stale
+paragraph (around line 1862) pointing at `~/src/castleblack/wall/README.md`,
+saying nothing is built and that the extraction should wait for the census. The
+file was superseded — it is only in git history at `a1fffd0` — and Phase 1 is
+built.
+
 ## Next
 
 1. **Decide whether Phase 1 merges to `brick-icons` `main`** — it is green and
