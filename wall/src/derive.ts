@@ -1,4 +1,4 @@
-import type { CompiledSpec } from './cel';
+import { unbind, type CompiledSpec } from './cel';
 import type { Item } from './schema';
 
 /** Everything the wall reads about an item, as columns parallel to `items`.
@@ -87,5 +87,8 @@ export function rederive<T extends Item>(c: CompiledSpec<T>, facts: Facts<T>,
   }
   assertIndices(items);
   facts.items = items;
-  for (const row of rows) fillRow(c, facts, row);
+  for (const row of rows) {
+    unbind(items[row]!);
+    fillRow(c, facts, row);
+  }
 }

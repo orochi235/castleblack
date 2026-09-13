@@ -1,6 +1,8 @@
 # Phase 3: the `wall` core — Implementation Plan
 
-> **IN PROGRESS — 2026-09-13**, branch `phase-3-wall`. Update this line when it lands.
+> **BUILT — 2026-09-13**, branch `phase-3-wall` fast-forwarded to `main`. Phase
+> 3b (React, canvas, loaders, chrome) is not built. See "What it found" at the
+> foot.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -205,3 +207,26 @@ Port `paint.ts`'s command logic onto facts. Tests, against the neutral spec: spr
 - No React, DOM or canvas code (Phase 3b).
 - brick-icons does not consume the package (step 7).
 - No Python evaluation of the spec; the conformance spike covers the CEL implementations, and the feed's side lands with the switchover.
+
+## What it found
+
+**Parity held from the first run.** The brick-icons spec reproduced all 55
+goldens; breaking one predicate (`timeout` to `false`) made 30 of them fail. The
+differential test covers 735 frames, 7,560 selections and the tallies over three
+seeds, and caught a tint scaled by 0.97 and a sort's direction flipped.
+
+**`@bufbuild/cel` rebuilds the item on every evaluation.** A plain object is
+turned into a CEL map per call, so `item.id` cost 1.1 µs on a one-field object
+and 20 µs on a 33-field one, and `derive` over 24,591 items took 6.6 s. Binding
+each item once, cached by object identity, brought it to 307–330 ms over three
+runs on an idle box. `rederive` drops a row's binding first, so an item changed
+in place is seen.
+
+**The host reads brick-icons' own tables** — colors, labels, badge art, sort
+directions, class defaults — and restates only the predicates, as CEL. The one
+copy is tint calibration (`FIRST_YEAR`, the log maxima), private to brick-icons'
+`tint.ts`; the differential test fails if it drifts.
+
+**Lifted layouts are generic,** so a key function handed to `blockLayout` or
+`bandedLayout` needs its parameter typed; it cannot be inferred from the items
+passed later.

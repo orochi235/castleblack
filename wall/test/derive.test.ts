@@ -41,6 +41,14 @@ it('refuses an index outside the corpus', () => {
   expect(() => derive(compiled, [thing('a', 0), thing('b', 2)])).toThrow(/index 2/);
 });
 
+it('sees an item that changed in place when its row is re-derived', () => {
+  const items = [thing('a', 0), thing('b', 1)];
+  const facts = derive(compiled, items);
+  items[1]!.err = 'x';
+  rederive(compiled, facts, items, [1]);
+  expect(facts.state).toEqual(['idle', 'broken']);
+});
+
 it('rewrites only the rows it is given', () => {
   const items = [thing('a', 0), thing('b', 1)];
   const facts = derive(compiled, items);

@@ -46,6 +46,11 @@ const FAILED = Symbol('failed');
 // costs 20 us on an item of 33 fields; a map built once is used as it is.
 const bindings = new WeakMap<object, unknown>();
 
+/** Forgets an item's binding, for an item changed in place. */
+export function unbind(item: object): void {
+  bindings.delete(item);
+}
+
 function bind(item: object): unknown {
   let bound = bindings.get(item);
   if (bound === undefined) {

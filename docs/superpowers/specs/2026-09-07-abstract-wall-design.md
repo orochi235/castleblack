@@ -1,9 +1,11 @@
 # The abstract wall
 
-**Status: steps 1–4 of the order of work are built; `wall` is not.** The CEL
-spike and the `bakery` package live in this repo; the paint goldens and the
-state tables are in brick-icons. Steps 5–7 are unbuilt. `wall` is its own package
-in this repo, depending on weasel (decided 2026-09-13). Checked against brick-icons `6bbc739`
+**Status: steps 1–4 and 5a are built; 5b, 6 and 7 are not.** This repo holds
+the CEL spike, `bakery`, and `wall`'s core: geometry, the schema, CEL
+compilation, `derive`, selection, tints and paint commands. brick-icons' spec,
+in `hosts/brick-icons/`, reproduces its 55 paint goldens. Unbuilt: the React
+component, the canvas executors, the loaders and the chrome (5b). `wall` is its
+own package, depending on weasel. Checked against brick-icons `f3ca333`
 (2026-09-13).
 
 This is the design for pulling the corpus wall out of `brick-icons` into two
@@ -37,75 +39,41 @@ stays with the host.
 So this is not a rewrite. It is one new concept — a corpus schema — over tables
 that brick-icons already keeps as data.
 
-### What the tables have grown that the interface below does not carry
+### What brick-icons' tables needed beyond a plain predicate
 
-The `CorpusSpec` sketch predates these, and step 5 has to give each a home:
+Each has a home in the built schema:
 
-- **Derived variants.** A state marked as having a sibling generates
+- **Derived variants** — a `VariantDef`. A state that names one generates
   `<key>Elsewhere`: the same fill, a washed-out border, thin weight, precedence
   40 lower, matched from a list of condition keys the server computes. The
   legend folds each variant into its parent's row and count.
-- **Two orders.** Matching precedence is written separately from legend order.
-- **Drawn versus undrawn.** An undrawn cell with a border gets a slash; a drawn
-  one wears the border color as the ground behind its tile.
-- **State-keyed decoration.** `outOfScope` swaps captions and badges for a
-  category initial or a sticker picture.
-- **Measured tints.** Linear or log scales with constants calibrated on the
-  corpus, an inverse mapping for the legend's ticks, a flat tone for a missing
-  value, and an 8-step ramp picked by name. A measured tint replaces the ground,
-  drops the border, and swaps the legend's state rows for a scale.
-- **Classes are enforced on the server too.** The stats API filters by the
-  same classes in SQL; brick-icons pins the two lists together with a test
-  that compares their keys (`03de725`).
+- **Two orders** — `precedence` is written separately from listing order.
+- **Drawn versus undrawn** — paint: an undrawn cell with a border gets a slash;
+  a drawn one wears the border color as the ground behind its tile.
+- **State-keyed decoration** — `quiet`: `outOfScope` swaps captions and badges
+  for the spec's `glyph` or `mark`.
+- **Measured tints** — `TintDef` hooks, with an inverse for the legend's ticks.
+  A measured tint replaces the ground and drops the border; the legend's scale
+  is 5b.
+- **Classes enforced on the server too** — still the host's: the stats API
+  filters by the same classes in SQL, pinned by a test that compares their keys
+  (`03de725`).
 
 ## The seam
 
 A host describes its corpus as data. The wall reads that description; nothing
 else crosses the boundary.
 
-`Expr` is a [CEL](https://cel.dev) expression over `item`. Anything yielding a
-boolean or a scalar is data. Anything doing arithmetic or producing a React node
-is a named hook the host supplies; a `HookKey` names one in `hooks`, so the rest
-of the spec stays serializable.
+`Expr` is a [CEL](https://cel.dev) expression over `item`. **The built contract
+is `wall/src/schema.ts`**; `wall/README.md` states the rules a spec follows.
+Predicates, sort values, tags and the wash flag are CEL, because the Python feed
+will evaluate the same rules. Captions, facets, the glyph and the mark take
+either CEL or a named TypeScript hook: they are display-only, and CEL cannot
+strip an LDraw sigil. Tints are hooks. A badge is art per tag, in a corner or
+the strip, and may yield to a caption.
 
-```ts
-/** What the wall requires of an item. Hosts extend it. */
-interface Item {
-  id: string;
-  /** Position in the FULL corpus order. See "The index invariant". */
-  index: number;
-  title: string;
-  /** Content sha for the current slot; null means never rendered. */
-  sha: string | null;
-}
-
-interface CorpusSpec<T extends Item> {
-  /** Ordered = precedence. The wall takes the first match. */
-  states:  { key; label; fill; border?; weight?; shape?;   match: Expr }[];
-  filters: { key; label;                                    keep: Expr }[];
-  classes: { key; label; on: boolean;                      match: Expr }[];
-  badges:  { key; label; slot: 'tl'|'br'|'strip'; art: HookKey;
-                                                           match: Expr }[];
-  /** Generates a checkbox list per distinct value. */
-  facets:  { key; label;                                      of: Expr }[];
-  sorts:   { key; label; desc?;                            value: Expr }[];
-  fields:  { key; label; show?: ('caption'|'card'|'modal')[]; corner?;
-             value: Expr; link?: Expr;
-             format?: HookKey; render?: HookKey }[];
-  /** TS, not CEL: sets and colors are log-scaled and CEL has no math library. */
-  tints:   { key; label; value: (item: T) => number | null }[];
-
-  slots: { name; label }[];
-  /** `item` and `slot` in scope; yields the vector rung's URL. */
-  renderable: Expr;
-
-  hooks: {
-    format: Record<string, (v: Value) => string>;
-    render: Record<string, (item: T) => ReactNode>;
-    mark:   Record<string, MarkArt>;
-  };
-}
-```
+Not in the schema yet, and designed for 5b: `fields` as below, `slots`, the
+vector rung's URL, and `render` hooks returning React nodes.
 
 `fields` is one declaration read three ways. A field shown as `caption` with a
 corner becomes a cell caption; shown as `card` or `modal` it is a row in the
@@ -133,10 +101,12 @@ the trap being extracted away from.
 ## Data flow
 
 CEL runs **once per item per data load** — never per frame, never per filter
-click. Measured with `@bufbuild/cel` on Node 26, one compiled predicate over
-24,591 items costs **32 ms, about 1.3 µs each** — roughly two frames. That is
-fine on a filter change and far too slow during a pan, which is the whole reason
-results are derived into a facts table and read as columns thereafter.
+click. Measured on Node 26 with brick-icons' spec, 33 columns over 24,591
+generated items, **`derive` takes about 0.3 s** (307–330 ms over three runs).
+It took 6.6 s until each item was bound to CEL once rather than once per
+expression: `@bufbuild/cel` rebuilds a plain object into a CEL map on every call,
+about 20 µs for 33 fields. A poll delta goes through `rederive` for the rows it
+changed. `hosts/brick-icons/bench/derive.ts` reproduces the numbers.
 
 ```
 spec (JSON + hooks)
@@ -246,8 +216,8 @@ would break `uv sync` on every render node without a castleblack checkout. The
 private remote makes a git dependency possible, once the nodes can read it.
 That is step 7.
 
-The item feed, `/api/corpus/cells`, did not move: it becomes `derive` over the
-schema in step 5.
+The item feed, `/api/corpus/cells`, did not move: it stays the host's SQL, and
+`wall`'s `derive` reads what it sends.
 
 ## Failure modes
 
@@ -277,6 +247,11 @@ data, so golden command lists are cheap. Capture them from the *current*
 brick-icons code before touching anything — each level, stale and fresh, every
 state, badges on and off, each tint, grouped and dense — and require the
 extracted wall to reproduce them exactly.
+
+**Parity with the legacy wall is tested two ways**, in `hosts/brick-icons/`:
+the 55 goldens, and a differential test running legacy and new code side by side
+on generated corpora — 735 frames, 7,560 selections and the state tallies over
+three seeds. Both read brick-icons' source at `$BRICK_ICONS`.
 
 **Tests split along the same seam as the code.** Machinery assertions go to
 `wall`, rewritten against the demo spec. Policy assertions — *does an open
@@ -310,7 +285,12 @@ gate.
 4. ~~**Lift `bakery`**~~ **Done** — see Bakery.
 5. **Lift `wall`**, host adapter written against `CorpusSpec`. Its own package
    here, depending on weasel.
-6. **Demo host**, and the leak check that `wall`'s suite names nothing LEGO.
+   - 5a. ~~**The core**~~ **Done** — geometry, schema, CEL, `derive`,
+     selection, tints, paint commands, and the brick-icons host with its parity
+     tests. Plan: `docs/superpowers/plans/2026-09-13-phase-3-wall-core.md`.
+   - 5b. **The React component, the executors, the loaders and the chrome**,
+     onto the core.
+6. **Demo host**. The leak check already exists (`wall/test/leak.test.ts`).
 7. **brick-icons switches** to consuming both by path, deletes its copy.
 
 ## Open

@@ -1,58 +1,56 @@
 # castleblack — pickup state
 
-**2026-09-13.** `bakery` is built and on `main`; `wall` is not. `wall` will be
-its own package here, depending on weasel — decided, and recorded under the
-spec's Open. The remote is `orochi235/castleblack`, private.
+**2026-09-13.** `bakery` and `wall`'s core are built and on `main`, pushed to
+`orochi235/castleblack` (private). Next is Phase 3b: the React component, the
+canvas executors, the loaders and the chrome, onto the core.
 
 ## Where things are
 
-- `docs/superpowers/specs/2026-09-07-abstract-wall-design.md` — the design,
-  brought up to brick-icons `6bbc739`. Read this first; its "Open" section records
-  the weasel decision.
-- `docs/superpowers/plans/` — Phase 1 (states as data, built in brick-icons) and
-  Phase 2 (`bakery`, built here). Each ends with "What it found".
-- `bakery/` — the package. `bakery/README.md` is the host contract and the
-  setup commands. The venv is gitignored; recreate it before running tests.
-- `scripts/brick-icons-bake-parity.py` — bakes a sample of real renders from
-  every brick-icons slot through both implementations and compares bytes.
-- `spike/cel/` — the CEL conformance spike.
+- `docs/superpowers/specs/2026-09-07-abstract-wall-design.md` — the design and
+  what is built of it, checked against brick-icons `f3ca333`. Read this first.
+- `docs/superpowers/plans/` — Phases 1, 2 and 3 (the wall core), each ending
+  with "What it found".
+- `wall/` — the TypeScript package. `wall/README.md` is the host contract.
+- `hosts/brick-icons/` — brick-icons' spec, and the tests proving it draws
+  what brick-icons drew: goldens, a differential test against the legacy code,
+  and `bench/derive.ts`.
+- `bakery/` — the Python package; its README has setup.
+- `scripts/brick-icons-bake-parity.py`, `spike/cel/`.
 
-**brick-icons** took three fixes this session asked another session for: the
-stylesheet no longer overrides the state colors (`8dda179`), the stats page
-takes its classes from the same table as the wall (`03de725`), and "open on the
-wall" keeps the class toggles (`6bbc739`). The first two are pushed; `6bbc739`
-was not at last look, and is not ours to push.
+The root is an npm workspace (`wall`, `hosts/brick-icons`): `npm install` once
+at the root.
 
 ## What is decided that the code does not say
 
-**The name.** `castleblack` for now; `yumyulack` is the alternative. Deciding
-late costs a directory rename and an import sweep.
+**The name.** `castleblack` for now; `yumyulack` is the alternative.
 
-**Phase 1 stopped short of CEL on purpose.** The state table holds TypeScript
-predicates. Converting them belongs with the `wall` lift, so brick-icons takes
-a CEL dependency once.
+**Display projections may be hooks; predicates may not.** States, filters,
+classes, sorts, tags and the wash flag are CEL so the Python feed can evaluate
+them. Captions, facets, glyph, mark and tints are TypeScript.
 
 ## Traps
 
-**brick-icons is shared.** Other sessions commit to its `main` and it carries
-three worktrees. Read it through `git show main:<path>`; do any work there in a
-worktree of your own.
+**The host tests read brick-icons' source at `$BRICK_ICONS`**, defaulting to
+the checkout beside castleblack — which other sessions edit. For a clean read,
+point it at a snapshot: `git -C ~/src/brick-icons archive main lab | tar -x -C
+<dir>` and `BRICK_ICONS=<dir>`.
 
-**The parity test skips without a brick-icons checkout** beside castleblack (or
-at `$BRICK_ICONS`). A green `bakery` suite on a machine without one has not
-checked parity.
+**brick-icons is shared.** Other sessions commit to its `main`. Read it through
+`git show main:<path>` or a snapshot; work there only in a worktree.
+
+**The `bakery` parity test skips without a brick-icons checkout.** A green suite
+on such a machine has not checked parity.
 
 **Never prove a test can fail by editing a same-length constant on disk.**
-Python's bytecode cache keys on mtime and size; two edits inside a second leave
-both unchanged and the stale compile keeps running. Patch in memory.
+Python's bytecode cache keys on mtime and size. Patch in memory.
 
-**Other lab pages import the wall's files** (`lab/src/bench`, `lab/src/stats`),
-so lifting `wall` moves their imports too.
+**`_pw_npm_token: command not found`** after npm commands is shell noise from
+the work profile, not a failure.
 
 ## Next
 
-1. **Plan step 5, lifting `wall`,** against the spec's move table and its list
-   of what the tables have grown. brick-icons commits to `lab/src/corpus/`
-   daily, so re-read `main` before planning.
-2. Steps 6 and 7 — the demo host, then brick-icons switching to both packages.
-   Step 7 needs brick-icons' render nodes able to read the private remote.
+1. **Plan and build 5b** from brick-icons' `Wall.tsx`, `draw2d`, `drawScene`,
+   `toDrawCommands`, the loaders and the chrome. Re-snapshot brick-icons first;
+   it commits to `lab/src/corpus/` daily.
+2. Step 6, the demo host; step 7, brick-icons switching to both packages, which
+   needs its render nodes able to read the private remote.
