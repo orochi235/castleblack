@@ -1,6 +1,7 @@
 # Phase 3b: the wall on screen, and a demo host — Implementation Plan
 
-> **IN PROGRESS — 2026-09-13**, branch `phase-3b-wall-view`. Update this line when it lands.
+> **BUILT — 2026-09-13**, branch `phase-3b-wall-view` fast-forwarded to `main`. See "What it
+> found" at the foot.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -37,7 +38,7 @@ Each agent ports the brick-icons tests for its files, rewritten against neutral 
 
 - `CellBadge` → `Badge`; `MARK_SHAPES` → `marks` passed in; `drawSticker` → `drawMark`; `RETIRED_WASH` → `washColor`; `'sticker mark'`/`'category glyph'` → `'mark'`/`'glyph'`.
 - `LabClient` → `SlotUrls` plus `fetchItems(slot, since?) → { items, version }`.
-- `Wall`: `onPick`/`onOpen` report rows; the one linked badge becomes `onBadge(row, tag) → boolean` over `linkedBadges`.
+- `Wall`: `onPick`/`onOpen` report rows; the one linked badge becomes `linkTarget(row, tag) → row | null` over `linkedBadges`.
 - `Legend`: state rows from `compiled.states`, tag rows from `spec.tagAxes` and `spec.badges`, scale from `TintDef`.
 - `Sidebar`: sorts, filters, classes and tints from the spec; groupings and facet grouping from props.
 - `ItemCard`: the body is a render prop; the wall owns placement, dismissal and hover.
@@ -61,3 +62,20 @@ Each agent ports the brick-icons tests for its files, rewritten against neutral 
 ## What this phase does not do
 
 - brick-icons does not consume `WallView` (step 7), so its lightbox, search, filter bar and hash codec stay there.
+
+## What it found
+
+**The demo runs in a browser.** In headless Chromium at 1400×900, the fitted
+wall drew all 3,000 items from the sheets, with state colors, marks and the
+legend's counts adding up to 3,000. Zooming in loaded 128px tiles once cells
+passed about 96px and SVG renders past about 192px; a click opened the card; a
+slot change showed "still showing outline while filled loads" for 283 ms.
+
+**The stale-sheet warning counted undrawn items as missing tiles** — 384 of
+3,000 on the demo, enough to trip it on every load. brick-icons' `staleCount`
+does the same. A tile is now missing only for an item with a sha.
+
+**Only a top-right caption makes room for a corner badge.** A top-left badge
+sits on a top-left caption, as it does in brick-icons. The demo puts its badge
+top-right; a host with a top-left badge and a top-left caption will see the
+overlap.

@@ -1,12 +1,12 @@
 # The abstract wall
 
-**Status: steps 1–4 and 5a are built; 5b, 6 and 7 are not.** This repo holds
-the CEL spike, `bakery`, and `wall`'s core: geometry, the schema, CEL
-compilation, `derive`, selection, tints and paint commands. brick-icons' spec,
-in `hosts/brick-icons/`, reproduces its 55 paint goldens. Unbuilt: the React
-component, the canvas executors, the loaders and the chrome (5b). `wall` is its
-own package, depending on weasel. Checked against brick-icons `f3ca333`
-(2026-09-13).
+**Status: steps 1–6 are built; step 7 is not.** This repo holds the CEL spike,
+`bakery`, and `wall` — its core (geometry, schema, CEL, `derive`, selection,
+tints, paint commands) and its view (drawing, loaders, `Wall`, the chrome, and
+`WallView`, a whole wall as a lab page). `hosts/brick-icons/` reproduces
+brick-icons' 55 paint goldens; `hosts/demo/` is a generated corpus baked by
+`bakery` and drawn by `WallView`. Unbuilt: brick-icons switching to the
+packages. Checked against brick-icons `fa91c59` (2026-09-13).
 
 This is the design for pulling the corpus wall out of `brick-icons` into two
 domain-free packages, with the LEGO corpus as the first host. It is for whoever
@@ -72,8 +72,8 @@ either CEL or a named TypeScript hook: they are display-only, and CEL cannot
 strip an LDraw sigil. Tints are hooks. A badge is art per tag, in a corner or
 the strip, and may yield to a caption.
 
-Not in the schema yet, and designed for 5b: `fields` as below, `slots`, the
-vector rung's URL, and `render` hooks returning React nodes.
+`fields` below is not built. `WallView` takes the card and detail bodies as
+render props, the slot list from `fetchSlots`, and URLs from `SlotUrls`.
 
 `fields` is one declaration read three ways. A field shown as `caption` with a
 corner becomes a cell caption; shown as `card` or `modal` it is a row in the
@@ -288,9 +288,11 @@ gate.
    - 5a. ~~**The core**~~ **Done** — geometry, schema, CEL, `derive`,
      selection, tints, paint commands, and the brick-icons host with its parity
      tests. Plan: `docs/superpowers/plans/2026-09-13-phase-3-wall-core.md`.
-   - 5b. **The React component, the executors, the loaders and the chrome**,
-     onto the core.
-6. **Demo host**. The leak check already exists (`wall/test/leak.test.ts`).
+   - 5b. ~~**The view**~~ **Done** — drawing, loaders, `Wall`, the chrome and
+     `WallView`. Plan: `docs/superpowers/plans/2026-09-13-phase-3b-wall-view.md`.
+6. ~~**Demo host**~~ **Done** — `hosts/demo/`: 3,000 generated items over two
+   slots, baked by `bakery`, served by FastAPI, drawn by `WallView`. The leak
+   check is `wall/test/leak.test.ts`.
 7. **brick-icons switches** to consuming both by path, deletes its copy.
 
 ## Open

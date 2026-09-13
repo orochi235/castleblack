@@ -8,8 +8,8 @@ behind a click. Two packages:
 
 - **[`wall`](wall/README.md)** (TypeScript) — the canvas, the level chain, the
   layout, the chrome. Knows about items, slots and states in the abstract and
-  nothing else. **The core is built** — states, selection, tints and paint
-  commands over a CEL schema; the React component and canvas are next.
+  nothing else. **Built**, with [`hosts/demo/`](hosts/demo/README.md) showing it
+  running.
 - **[`bakery`](bakery/README.md)** (Python) — rasterize, square, compose
   atlases, and serve them. **Built.**
 
