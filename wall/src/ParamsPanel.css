@@ -1,0 +1,27 @@
+/* A block of the sidebar, not a panel over the wall: the sidebar carries the
+   surface, scrolling and heading style. */
+.wall-params-panel {
+  display: flex;
+  flex-direction: column;
+  font: 12px/1.4 ui-monospace, monospace;
+}
+.wall-params-body { padding: 0 12px; }
+.wall-params-group + .wall-params-group { margin-top: 0.6rem; }
+.wall-params-group h4 {
+  margin: 0 0 0.2rem;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wzl-fg-muted);
+}
+
+/* weasel-ui centers its color row, and its class names cannot be selected
+ * from outside the package, so the row is reached structurally. */
+.wall-params-panel label:has(> input[type='color']) > span:first-child,
+.wall-params-panel label:has(> input[type='color']) > input[type='color'] {
+  align-self: start;
+}
+
+/* One column rather than ControlPanel's pairs: in a 216px sidebar a paired
+ * row is about 90px, and its nowrap label cannot be shrunk from out here. */
+.wall-params-panel label { grid-column: 1 / -1; }

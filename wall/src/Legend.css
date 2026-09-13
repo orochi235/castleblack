@@ -1,0 +1,109 @@
+.wall-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: var(--wall-panel-width, 17rem);
+  padding: 0.5rem 0.6rem;
+  /* `--wzl-surface-raised` carries alpha, meant for a blurred backdrop; this
+   * floats over cell colors, so it is backed by the opaque surface. */
+  background-color: var(--wzl-surface);
+  background-image: linear-gradient(var(--wzl-surface-raised), var(--wzl-surface-raised));
+  color: var(--wzl-fg);
+  border: var(--wzl-border-w) solid var(--wzl-border);
+  border-radius: var(--wzl-radius-md);
+  box-shadow: 0 6px 20px var(--wzl-shadow);
+  font: 12px/1.4 ui-monospace, monospace;
+}
+.wall-legend-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.wall-legend-list { list-style: none; margin: 0; padding: 0; }
+.wall-legend-row {
+  /* Grid, so the count gets a reserved track rather than landing wherever
+   * the longest name leaves it. */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: var(--wzl-radius-sm);
+  cursor: default;
+}
+.wall-legend-row:hover,
+.wall-legend-row[data-highlighted="true"] {
+  background: var(--wzl-surface-sunken);
+}
+.wall-legend-row:focus-visible {
+  outline: 2px solid var(--wzl-accent);
+  outline-offset: -2px;
+}
+.wall-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  box-sizing: border-box;
+  /* One rule for every state: `Legend` sets both from the spec's states. */
+  background-color: var(--swatch-fill);
+  border: 2px solid var(--swatch-line);
+  color: var(--swatch-line);
+}
+.wall-legend-row[data-shape="circle"] .wall-legend-swatch { border-radius: 50%; }
+.wall-legend-row[data-weight="thin"] .wall-legend-swatch { border-width: 1px; }
+/* Struck corner to corner, the way the wall strikes an undrawn cell with a
+ * border; `currentColor` is that border. */
+.wall-legend-row[data-struck="true"] .wall-legend-swatch {
+  background-image: linear-gradient(to top right,
+    transparent calc(50% - 1px), currentColor calc(50% - 1px),
+    currentColor calc(50% + 1px), transparent calc(50% + 1px));
+}
+
+.wall-legend-name { min-width: 0; }
+.wall-legend-count {
+  color: var(--wzl-fg-muted);
+  min-width: 6ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The tag section. Its rows are buttons, since picking one filters the wall,
+   where a state row only highlights while hovered. */
+.wall-legend-subhead {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--lk-border, #3a3a42);
+}
+
+/* A rule between axes and no names: the tags already say what the axis is. */
+.wall-legend-axis + .wall-legend-axis {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--lk-border, #3a3a42);
+}
+
+.wall-legend-badge-row {
+  width: 100%;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wall-legend-badge-row[data-picked='true'] {
+  background: var(--lk-selected, rgb(255 255 255 / 0.12));
+}
+
+/* A tag with no badge art holds the swatch column with an empty ring. */
+.wall-legend-badge-row .wall-legend-swatch {
+  background: none;
+  border: 1px solid var(--wzl-fg-muted);
+  border-radius: 50%;
+}
+
+.wall-legend-badge {
+  flex: 0 0 auto;
+}

@@ -1,0 +1,90 @@
+/* A badge in the DOM: a stadium of the badge's field, a disc of artwork at one
+ * end and its name set beside it. The measurements are the canvas's; the
+ * centering is flexbox's, where the canvas has to compute an ink box. */
+
+.wall-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--badge-box);
+  border-radius: 999px;
+  background: var(--badge-field);
+  box-shadow: inset 0 0 0 var(--badge-line) var(--badge-stroke);
+  color: var(--badge-ink);
+  font-family: var(--badge-face);
+  font-size: var(--badge-text);
+  font-weight: var(--badge-weight);
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Nothing in the disc: the field's own padding rather than a mark's width of
+ * empty room before the first glyph. */
+.wall-badge[data-disc='false'] { padding-left: var(--badge-pad); }
+.wall-badge[data-label='true'] { padding-right: var(--badge-pad); }
+
+/* A ring that edges the artwork rather than framing the name. */
+.wall-badge[data-ring='disc'] { box-shadow: none; }
+
+/* Two filled circles, never a ring laid over the field's edge: stacked
+ * antialiasing leaks a rim of the field round the whole disc. */
+.wall-badge[data-ring='disc'] .wall-badge-disc {
+  background: var(--badge-stroke);
+}
+
+.wall-badge[data-ring='disc'] .wall-badge-disc::before {
+  content: '';
+  position: absolute;
+  inset: var(--badge-line);
+  border-radius: 50%;
+  background: var(--badge-disc-field);
+  pointer-events: none;
+}
+
+/* The disc keeps its own field and ink; only the stadium behind the name is
+ * let down toward white. */
+.wall-badge-disc {
+  background: var(--badge-disc-field);
+  border-radius: 50%;
+  color: var(--badge-mark-ink);
+  position: relative;
+  flex: 0 0 var(--badge-box);
+  width: var(--badge-box);
+  height: var(--badge-box);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wall-badge-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+
+.wall-badge-glyph {
+  font-family: var(--badge-glyph-face);
+  font-size: var(--badge-glyph);
+  font-style: var(--badge-glyph-style);
+  /* Optical centering, for a glyph that sets high or low in its em. */
+  translate: var(--badge-dx) var(--badge-dy);
+}
+
+.wall-badge[data-disc='true'] .wall-badge-label { margin-left: var(--badge-gap); }
+
+.wall-badge-label {
+  text-transform: uppercase;
+  font-weight: var(--badge-label-weight);
+}
+
+/* A punched hole shows the page: any fill there reads as more badge. The two
+ * mask layers are the cut and a cover, and `exclude` keeps their difference. */
+.wall-badge[data-cut='true'] {
+  mask-image: var(--badge-cut), linear-gradient(#000, #000);
+  mask-position: left center, left top;
+  mask-size: var(--badge-box) var(--badge-box), 100% 100%;
+  mask-repeat: no-repeat;
+  mask-composite: exclude;
+}
