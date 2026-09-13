@@ -1,6 +1,4 @@
-# castleblack
-
-*or, yumyulack*
+# pezlie
 
 A pan/zoom canvas over tens of thousands of items, one cell each, drawn from a
 baked mip chain of sprites, with a live status color per cell and a detail view

@@ -6,9 +6,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** a TypeScript package, `castleblack/wall`, holding the wall's geometry and its whole decision layer — states, selection, tints, and `paintCommands` — driven by a `CorpusSpec` whose predicates are CEL. brick-icons' spec, written against it, reproduces all 55 paint goldens, and matches the legacy code on generated corpora too.
+**Goal:** a TypeScript package, `pezlie/wall`, holding the wall's geometry and its whole decision layer — states, selection, tints, and `paintCommands` — driven by a `CorpusSpec` whose predicates are CEL. brick-icons' spec, written against it, reproduces all 55 paint goldens, and matches the legacy code on generated corpora too.
 
-**Architecture:** An npm workspace at the castleblack root with two members. `wall/` knows items, states and slots in the abstract, and its test suite names nothing from LEGO; a test enforces that. `hosts/brick-icons/` is the first host adapter — the LEGO `CorpusSpec` and its hooks — plus the parity tests, which import brick-icons' own `lab/src/corpus/` through an alias and run old and new side by side. At step 7 the adapter moves into brick-icons.
+**Architecture:** An npm workspace at the pezlie root with two members. `wall/` knows items, states and slots in the abstract, and its test suite names nothing from LEGO; a test enforces that. `hosts/brick-icons/` is the first host adapter — the LEGO `CorpusSpec` and its hooks — plus the parity tests, which import brick-icons' own `lab/src/corpus/` through an alias and run old and new side by side. At step 7 the adapter moves into brick-icons.
 
 **Tech Stack:** TypeScript 5, Vitest, `@bufbuild/cel` 0.6.1, `@weasel-js/core` 1.4.4 (view math only). Node 26.
 
@@ -36,7 +36,7 @@
 
 **The palette reads through a function, not an element.** `readPalette(read, table)` takes `(prop) => string`, so the core needs no DOM; the CSS variable prefix is the host's (`--corpus-cell-` for brick-icons).
 
-**Parity reads brick-icons' source, not a copy.** The host tests alias `@lab` to `$BRICK_ICONS/lab/src` (default: a `brick-icons` checkout beside castleblack) and skip without one.
+**Parity reads brick-icons' source, not a copy.** The host tests alias `@lab` to `$BRICK_ICONS/lab/src` (default: a `brick-icons` checkout beside pezlie) and skip without one.
 
 ## The contract — `wall/src/schema.ts`
 
@@ -133,8 +133,8 @@ Each task is test-first: write the tests named, watch them fail on the missing e
 ### Task 0: Workspace
 
 - [ ] Root `package.json` with `"workspaces": ["wall", "hosts/brick-icons"]`, `private: true`.
-- [ ] `wall/package.json` (`@castleblack/wall`, private, `type: module`, scripts `test`, `typecheck`; deps `@bufbuild/cel@^0.6.1`, `@weasel-js/core@^1.4.4`; dev `typescript`, `vitest`), `wall/tsconfig.json` (strict, `noUncheckedIndexedAccess`, `moduleResolution: bundler`, `noEmit`), `wall/vitest.config.ts` (node environment).
-- [ ] `hosts/brick-icons/` the same shape, depending on `@castleblack/wall`, with `@lab` aliased in both `tsconfig` and `vitest.config.ts` to `$BRICK_ICONS/lab/src`.
+- [ ] `wall/package.json` (`@pezlie/wall`, private, `type: module`, scripts `test`, `typecheck`; deps `@bufbuild/cel@^0.6.1`, `@weasel-js/core@^1.4.4`; dev `typescript`, `vitest`), `wall/tsconfig.json` (strict, `noUncheckedIndexedAccess`, `moduleResolution: bundler`, `noEmit`), `wall/vitest.config.ts` (node environment).
+- [ ] `hosts/brick-icons/` the same shape, depending on `@pezlie/wall`, with `@lab` aliased in both `tsconfig` and `vitest.config.ts` to `$BRICK_ICONS/lab/src`.
 - [ ] `.gitignore`: `node_modules/`. `npm install` at the root. Commit.
 
 ### Task 1: Geometry, lifted unchanged

@@ -4,14 +4,14 @@
 > (`22f77a9`, `e0bd63e`, `c83a306`, `3bc6b3c`, `859b148`, over the golden net at
 > `0890700`/`5b56d29`). The 45 goldens held at every gate; the corpus directory
 > ends at 393 passing across 33 files; typecheck clean. The CEL spike is
-> `castleblack/spike/cel`. **Three findings came out of it that the plan did not
+> `pezlie/spike/cel`. **Three findings came out of it that the plan did not
 > anticipate — see "What it found" at the foot of this file.**
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** brick-icons' corpus wall behaves identically, but its eight cell states — and the ten places that currently enumerate them by hand — come from one ordered table, behind a golden net that proves nothing moved.
 
-**Architecture:** No package is created and nothing moves repositories. A `StateSpec[]` is introduced inside `lab/src/corpus/`, still holding the LEGO predicates, and `palette.ts`, `params.ts`, `paint.ts` and `useParams.ts` are rewritten to derive from it (`ParamsPanel.tsx` and `Legend.tsx` already read the generated tables and need no edit). A separate, self-contained CEL conformance spike in `castleblack` settles which CEL implementation the later phases use, before that choice is load-bearing.
+**Architecture:** No package is created and nothing moves repositories. A `StateSpec[]` is introduced inside `lab/src/corpus/`, still holding the LEGO predicates, and `palette.ts`, `params.ts`, `paint.ts` and `useParams.ts` are rewritten to derive from it (`ParamsPanel.tsx` and `Legend.tsx` already read the generated tables and need no edit). A separate, self-contained CEL conformance spike in `pezlie` settles which CEL implementation the later phases use, before that choice is load-bearing.
 
 **Tech Stack:** TypeScript, React 19, Vitest, `@weasel-js/labkit`; Python 3.10+ with `cel-python` and Node with `@bufbuild/cel` / `@marcbachmann/cel-js` for the spike only.
 
@@ -46,11 +46,11 @@ This plan covers spec steps 1–3 only. Three later plans follow, each producing
 ## File structure
 
 **Created:**
-- `castleblack/spike/cel/expressions.json` — the expression corpus and its fixtures. One file, read by all three runners, so no runner can quietly test a different set.
-- `castleblack/spike/cel/run.mjs` — evaluates the corpus under each JS candidate.
-- `castleblack/spike/cel/run.py` — evaluates it under `cel-python`.
-- `castleblack/spike/cel/compare.py` — diffs the three result sets, prints the table, exits non-zero on disagreement.
-- `castleblack/spike/cel/README.md` — what the spike concluded.
+- `pezlie/spike/cel/expressions.json` — the expression corpus and its fixtures. One file, read by all three runners, so no runner can quietly test a different set.
+- `pezlie/spike/cel/run.mjs` — evaluates the corpus under each JS candidate.
+- `pezlie/spike/cel/run.py` — evaluates it under `cel-python`.
+- `pezlie/spike/cel/compare.py` — diffs the three result sets, prints the table, exits non-zero on disagreement.
+- `pezlie/spike/cel/README.md` — what the spike concluded.
 - `brick-icons/lab/src/corpus/goldens/` — captured `paintCommands` output, one JSON per scenario.
 - `brick-icons/lab/src/corpus/goldens.fixture.ts` — the scenarios, shared by the capture script and the assertion test.
 - `brick-icons/lab/src/corpus/goldens.test.ts` — asserts current output matches the captured files.
@@ -73,12 +73,12 @@ This plan covers spec steps 1–3 only. Three later plans follow, each producing
 Self-contained and separable — nothing else in this plan depends on its outcome, but Phase 3's shape does.
 
 **Files:**
-- Create: `castleblack/spike/cel/expressions.json`
-- Create: `castleblack/spike/cel/run.mjs`
-- Create: `castleblack/spike/cel/run.py`
-- Create: `castleblack/spike/cel/compare.py`
-- Create: `castleblack/spike/cel/package.json`
-- Create: `castleblack/spike/cel/README.md`
+- Create: `pezlie/spike/cel/expressions.json`
+- Create: `pezlie/spike/cel/run.mjs`
+- Create: `pezlie/spike/cel/run.py`
+- Create: `pezlie/spike/cel/compare.py`
+- Create: `pezlie/spike/cel/package.json`
+- Create: `pezlie/spike/cel/README.md`
 
 - [x] **Step 1: Write the expression corpus**
 
@@ -167,7 +167,7 @@ lightweight JS port is most likely to diverge from `cel-python`.
 - [x] **Step 2: Write the JS runner**
 
 ```js
-// castleblack/spike/cel/run.mjs
+// pezlie/spike/cel/run.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const IMPLS = {
@@ -220,7 +220,7 @@ console.log(`${which}: ${Object.keys(out).length} cells`);
 - [x] **Step 3: Write the Python runner**
 
 ```python
-# castleblack/spike/cel/run.py
+# pezlie/spike/cel/run.py
 """Evaluate the shared expression corpus under cel-python."""
 from __future__ import annotations
 
@@ -285,7 +285,7 @@ Prints one line per expression as it goes, per the progress rule — a silent
 runner is indistinguishable from a hung one.
 
 ```python
-# castleblack/spike/cel/compare.py
+# pezlie/spike/cel/compare.py
 """Diff the three result sets and report per-expression agreement."""
 from __future__ import annotations
 
@@ -334,7 +334,7 @@ if __name__ == "__main__":
 - [x] **Step 5: Install and run all three**
 
 ```bash
-cd castleblack/spike/cel
+cd pezlie/spike/cel
 npm init -y >/dev/null
 npm i @bufbuild/cel@0.6.1 @marcbachmann/cel-js@8.0.0
 python3 -m venv .venv && .venv/bin/pip -q install 'cel-python==0.5.0'
@@ -368,7 +368,7 @@ Expected: a number. Record it; the spec asserts nothing about it on purpose.
 
 - [x] **Step 7: Write the conclusion**
 
-`castleblack/spike/cel/README.md` states, in order: which implementation was
+`pezlie/spike/cel/README.md` states, in order: which implementation was
 chosen and on what evidence; every expression that disagreed and what the
 difference was; the measured per-evaluation cost; and which of the three
 deliberate edge expressions (`guard.absentField`, `str.lower`, `str.matches`)
@@ -377,7 +377,7 @@ need a TS hook instead because no implementation handles them compatibly.
 - [x] **Step 8: Commit**
 
 ```bash
-cd castleblack
+cd pezlie
 printf 'spike/cel/node_modules/\nspike/cel/.venv/\nspike/cel/results.*.json\n' >> .gitignore
 git add spike/cel .gitignore
 git commit -m "settle the CEL implementation with a conformance spike

@@ -1,7 +1,7 @@
-# castleblack — pickup state
+# pezlie — pickup state
 
 **2026-09-13.** `bakery` and `wall` are built and on `main`, pushed to
-`orochi235/castleblack` (public), with a demo host drawing a generated corpus in
+`orochi235/pezlie` (public), with a demo host drawing a generated corpus in
 a browser. What is left is step 7: brick-icons switching to both packages.
 
 **A parallel `/wall` page is on brick-icons `main`** (`f5bb708`, `fbbc19e`, not
@@ -31,8 +31,10 @@ gitignored and recreated from each README.
 
 ## What is decided that the code does not say
 
-**The name.** `castleblack` for now; `yumyulack` is the alternative. On npm,
-`castleblack` is a parked 0.0.0 someone else owns; `yumyulack` is free.
+**The name is `pezlie`**, after the first person born tiny in *Solar
+Opposites*' wall. It is free on npm and PyPI; the working name, `castleblack`, is a
+parked npm package someone else owns. The GitHub repo and this directory were
+renamed from it, and GitHub redirects the old URL.
 
 **Display projections may be hooks; predicates may not.** States, filters,
 classes, sorts, tags and the wash flag are CEL so a Python feed can evaluate
@@ -44,7 +46,7 @@ them. Captions, facets, glyph, mark and tints are TypeScript.
 ## Traps
 
 **The host tests read brick-icons' source at `$BRICK_ICONS`**, defaulting to
-the checkout beside castleblack — which other sessions edit. For a clean read,
+the checkout beside pezlie — which other sessions edit. For a clean read,
 point it at a snapshot: `git -C ~/src/brick-icons archive main lab | tar -x -C
 <dir>` and `BRICK_ICONS=<dir>`.
 
@@ -60,9 +62,9 @@ Python's bytecode cache keys on mtime and size. Patch in memory.
 **A top-left badge sits on a top-left caption.** Only top-right captions make
 room; brick-icons has the same overlap.
 
-**brick-icons pins castleblack by sha.** `lab/package.json` installs this repo
-from GitHub, so a castleblack change reaches `/wall` only when that sha moves;
-`CASTLEBLACK=~/src/castleblack npm run dev` reads the checkout instead. The
+**brick-icons pins pezlie by sha.** `lab/package.json` installs this repo
+from GitHub, so a pezlie change reaches `/wall` only when that sha moves;
+`PEZLIE=~/src/pezlie npm run dev` reads the checkout instead. The
 repo is public, so any clone's `npm ci` fetches it over HTTPS despite the
 `git+ssh` URL npm writes in the lockfile. The render nodes never run npm.
 

@@ -41,7 +41,7 @@ def create_app(out: Path) -> FastAPI:
             return None
         return out / "renders" / slot / f"{item_id}.svg"
 
-    app = FastAPI(title="castleblack demo")
+    app = FastAPI(title="pezlie demo")
     app.include_router(
         thumbs_router(lambda slot: out / "thumbs" / slot if slot in SLOTS else None),
         prefix="/api/thumbs")

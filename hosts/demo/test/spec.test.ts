@@ -1,4 +1,4 @@
-import { compile, derive } from '@castleblack/wall';
+import { compile, derive } from '@pezlie/wall';
 import { describe, expect, it } from 'vitest';
 import { DEMO, type DemoItem } from '../src/spec';
 

@@ -7,7 +7,7 @@ tints, paint commands) and its view (drawing, loaders, `Wall`, the chrome, and
 brick-icons' 55 paint goldens; `hosts/demo/` is a generated corpus baked by
 `bakery` and drawn by `WallView`. Unbuilt: brick-icons switching to the
 packages, which so far is a `/wall` page beside the legacy wall, on brick-icons
-`main` with castleblack pinned by sha. Checked against brick-icons `fa91c59` (2026-09-13).
+`main` with pezlie pinned by sha. Checked against brick-icons `fa91c59` (2026-09-13).
 
 This is the design for pulling the corpus wall out of `brick-icons` into two
 domain-free packages, with the LEGO corpus as the first host. It is for whoever
@@ -212,8 +212,8 @@ it would shift every later cell.
 all: the bake is transparent and the wall paints the ground under every rung.
 `bakery` keeps that and asserts it at the pixel.
 
-**brick-icons does not import `bakery` yet.** A path dependency onto castleblack
-would break `uv sync` on every render node without a castleblack checkout. The
+**brick-icons does not import `bakery` yet.** A path dependency onto pezlie
+would break `uv sync` on every render node without a pezlie checkout. The
 repo is public, so a git dependency pinned by sha works there, as the lab's
 already does. That is step 7.
 
@@ -269,7 +269,7 @@ chosen JS implementation and in `cel-python`, asserted equal. The spike that
 picks the implementation becomes this test rather than being discarded.
 
 While iterating, the scope is `lab/src/corpus/` on the brick-icons side and the
-one package on the castleblack side. The full brick-icons suite is a pre-push
+one package on the pezlie side. The full brick-icons suite is a pre-push
 gate.
 
 ## Order of work
@@ -299,17 +299,15 @@ gate.
 ## Open
 
 **Where `wall` sits relative to weasel: decided 2026-09-13 — a separate package
-in castleblack**, depending on `@weasel-js/core`, `labkit` and `ui` from npm. It
+in pezlie**, depending on `@weasel-js/core`, `labkit` and `ui` from npm. It
 owns both executors, and the demo host's leak check runs here. Folding it into
 weasel was weighed and turned down. What follows from that: brick-icons installs
-`wall` and `bakery` from castleblack's public GitHub repo, pinned by sha — and any
+`wall` and `bakery` from pezlie's public GitHub repo, pinned by sha — and any
 renderer feature the 2D overlay covers
 today lands as a weasel release that `wall` then picks up.
 
-**Name.** `castleblack` for now; `yumyulack` is the alternative, recorded under
-the README title. On npm, `castleblack` is a parked 0.0.0 someone else owns;
-`yumyulack` is free. Deciding it late costs a directory rename and an import path
-sweep.
+**Name: settled 2026-09-13 — `pezlie`**, free on npm and PyPI. The working name,
+`castleblack`, is a parked npm package someone else owns.
 
 **CEL implementation: settled — `@bufbuild/cel`.** Not on the expression corpus,
 which failed to separate the candidates: both JS implementations agreed with

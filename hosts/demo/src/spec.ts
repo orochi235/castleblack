@@ -1,7 +1,7 @@
 import type {
   BadgeDef, CorpusSpec, Item, StateDef, TintDef, VariantDef,
-} from '@castleblack/wall/src/schema';
-import type { Marks } from '@castleblack/wall/src/marks';
+} from '@pezlie/wall/src/schema';
+import type { Marks } from '@pezlie/wall/src/marks';
 
 /** One item as `make.py` writes it into `items-<slot>.json`. */
 export interface DemoItem extends Item {

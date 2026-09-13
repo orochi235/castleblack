@@ -49,5 +49,5 @@ bakery/.venv/bin/python -m pytest bakery -q
 
 `tests/test_parity.py` bakes the same inputs through brick-icons'
 `brick_icons/thumbs.py` and through this package and compares bytes. It looks
-for a brick-icons checkout beside castleblack, or at `$BRICK_ICONS`, and skips
+for a brick-icons checkout beside pezlie, or at `$BRICK_ICONS`, and skips
 without one.

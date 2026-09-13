@@ -1,14 +1,14 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { compile } from '@castleblack/wall/src/cel';
-import { derive, type Facts } from '@castleblack/wall/src/derive';
-import { DEFAULT_APPEARANCE, type PaintInput } from '@castleblack/wall/src/paint';
-import type { Palette } from '@castleblack/wall/src/palette';
+import { compile } from '@pezlie/wall/src/cel';
+import { derive, type Facts } from '@pezlie/wall/src/derive';
+import { DEFAULT_APPEARANCE, type PaintInput } from '@pezlie/wall/src/paint';
+import type { Palette } from '@pezlie/wall/src/palette';
 import type { PaintInput as LegacyInput } from '@lab/corpus/paint';
 import type { Cell } from '@lab/corpus/types';
 import { BRICK_ICONS } from '../src/spec';
 
-/** brick-icons' lab source: a checkout beside castleblack, or `$BRICK_ICONS`. */
+/** brick-icons' lab source: a checkout beside pezlie, or `$BRICK_ICONS`. */
 export const LAB = resolve(
   process.env.BRICK_ICONS ?? resolve(import.meta.dirname, '../../../../brick-icons'), 'lab/src');
 

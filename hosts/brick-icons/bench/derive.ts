@@ -2,8 +2,8 @@
  *
  *    npx vite-node -c vitest.config.ts bench/derive.ts
  */
-import { compile } from '@castleblack/wall/src/cel';
-import { derive } from '@castleblack/wall/src/derive';
+import { compile } from '@pezlie/wall/src/cel';
+import { derive } from '@pezlie/wall/src/derive';
 import type { Cell } from '@lab/corpus/types';
 import { BRICK_ICONS } from '../src/spec';
 import { generateCells } from '../test/cells';

@@ -6,7 +6,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** a domain-free Python package, `castleblack/bakery`, that bakes one slot's renders into the wall's mip chain and serves it — producing byte-identical output to brick-icons' `brick_icons/thumbs.py`, with two failures made loud that are silent today.
+**Goal:** a domain-free Python package, `pezlie/bakery`, that bakes one slot's renders into the wall's mip chain and serves it — producing byte-identical output to brick-icons' `brick_icons/thumbs.py`, with two failures made loud that are silent today.
 
 **Architecture:** `thumbs.py` is split by responsibility into `sheet` (geometry), `sidecar` (the sha map), `bake` (rasterize and compose), `lock` (single writer), `batch` (the per-slot loop that lives in `scripts/bake-thumbs.py` today) and `routes` (the sheet, tile and render endpoints from `brick_icons/lab/app.py`, as mountable FastAPI routers). The host supplies three things: the list of renders for a slot, the full item order, and the lookups the routes need. A parity test bakes the same inputs through brick-icons' file and through `bakery` and compares bytes.
 
@@ -20,7 +20,7 @@
 
 **The ground-color change is moot.** The spec had `bakery` declare a ground and the manifest report it. brick-icons has since stopped baking a ground at all: `GROUND` is transparent, the wall paints the ground under every rung, and `test_no_ground_is_baked_in_either_language` pins both sides. `bakery` keeps the transparent ground and asserts it at the pixel. The half of that test that parses `paint.ts` stays in brick-icons until the wall moves.
 
-**brick-icons does not switch over in this phase.** A path dependency from brick-icons' `pyproject.toml` onto `castleblack` would break `uv sync` on every fleet node without a castleblack checkout, and castleblack has no remote. Switching stays spec step 7. Until then the parity test is what keeps the two copies honest.
+**brick-icons does not switch over in this phase.** A path dependency from brick-icons' `pyproject.toml` onto `pezlie` would break `uv sync` on every fleet node without a pezlie checkout, and pezlie has no remote. Switching stays spec step 7. Until then the parity test is what keeps the two copies honest.
 
 ## Scope
 
@@ -37,7 +37,7 @@ Everything else is a rename (`part_id` → `item_id`, `bake_part` → `bake_item
 
 ## File structure
 
-**Created, all under `castleblack/bakery/`:**
+**Created, all under `pezlie/bakery/`:**
 - `pyproject.toml` — package `bakery`, extras `routes` and `test`.
 - `README.md` — the contract a host signs up to, and setup.
 - `src/bakery/__init__.py`
@@ -49,7 +49,7 @@ Everything else is a rename (`part_id` → `item_id`, `bake_part` → `bake_item
 - `src/bakery/routes.py` — `thumbs_router`, `render_router`, `MEDIA_TYPES`.
 - `tests/conftest.py`, `tests/test_sheet.py`, `tests/test_bake.py`, `tests/test_lock.py`, `tests/test_batch.py`, `tests/test_routes.py`, `tests/test_parity.py`.
 
-**Modified:** `castleblack/.gitignore`.
+**Modified:** `pezlie/.gitignore`.
 
 ---
 
@@ -978,7 +978,7 @@ This is a characterization test, so it is expected to pass on first run. Prove i
 ```python
 """The lift renamed things and moved nothing: bakery and the brick-icons file
 it came from bake the same inputs to the same bytes. Skips without a
-brick-icons checkout beside castleblack, or at $BRICK_ICONS."""
+brick-icons checkout beside pezlie, or at $BRICK_ICONS."""
 import importlib.util
 import os
 from pathlib import Path

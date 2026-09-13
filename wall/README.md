@@ -69,7 +69,7 @@ CSS classes are `wall-*`; colors can be overridden with custom properties under
 ## Develop
 
 ```bash
-npm install          # at the castleblack root
+npm install          # at the pezlie root
 npx vitest run       # in wall/
 npx tsc --noEmit
 ```

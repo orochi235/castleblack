@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { paintCommands } from '@castleblack/wall/src/paint';
+import { paintCommands } from '@pezlie/wall/src/paint';
 import { scenarios } from '@lab/corpus/goldens.fixture';
 import { goldens, translate } from './legacy';
 

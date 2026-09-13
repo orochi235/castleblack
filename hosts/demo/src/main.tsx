@@ -1,9 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@weasel-js/labkit/styles.css';
-import { bandedLayout, blockLayout } from '@castleblack/wall/src/grouped';
-import { defaultUrls } from '@castleblack/wall/src/urls';
-import { WallView, type WallGrouping } from '@castleblack/wall/src/WallView';
+import { bandedLayout, blockLayout } from '@pezlie/wall/src/grouped';
+import { defaultUrls } from '@pezlie/wall/src/urls';
+import { WallView, type WallGrouping } from '@pezlie/wall/src/WallView';
 import { DEMO, type DemoItem } from './spec';
 import './demo.css';
 
@@ -49,9 +49,9 @@ function Card({ item, slot }: { item: DemoItem; slot: string }) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <WallView title="castleblack demo" spec={DEMO} urls={urls}
+    <WallView title="pezlie demo" spec={DEMO} urls={urls}
               fetchItems={fetchItems} fetchSlots={fetchSlots} defaultSlot="outline"
-              storageKey="castleblack-demo.params" groupings={groupings}
+              storageKey="pezlie-demo.params" groupings={groupings}
               facet={{ key: 'kind', label: 'kind' }}
               renderCard={(item, slot) => <Card item={item} slot={slot} />} />
   </StrictMode>,

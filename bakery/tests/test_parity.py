@@ -1,6 +1,6 @@
 """The lift renamed things and moved nothing: bakery and the brick-icons file
 it came from bake the same inputs to the same bytes. Skips without a
-brick-icons checkout beside castleblack, or at $BRICK_ICONS."""
+brick-icons checkout beside pezlie, or at $BRICK_ICONS."""
 import importlib.util
 import os
 import sys

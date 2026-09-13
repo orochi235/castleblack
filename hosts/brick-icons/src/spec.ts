@@ -1,6 +1,6 @@
 import type {
   BadgeDef, CorpusSpec, StateDef, TintDef, VariantDef,
-} from '@castleblack/wall/src/schema';
+} from '@pezlie/wall/src/schema';
 import { CLASS_SPECS, FILTER_SPECS, SORT_SPECS } from '@lab/corpus/criteria';
 import { categoryOf } from '@lab/corpus/facts';
 import {
