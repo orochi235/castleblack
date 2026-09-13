@@ -112,3 +112,8 @@ def test_a_format_change_rebakes_rather_than_composing_missing_tiles(
     assert bake.bake_item("3001", svg, out, sha="abc") == list(LEVELS)
     for level in LEVELS:
         assert (out / str(level) / "3001.png").is_file()
+
+
+def test_compose_refuses_an_order_that_repeats_an_id(tmp_path):
+    with pytest.raises(ValueError, match="repeats 1 id"):
+        bake.compose(tmp_path, order=["a", "b", "a"])

@@ -6,6 +6,7 @@ later fills the cell it already had rather than renumbering the sheet.
 from __future__ import annotations
 
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 from PIL import Image
@@ -55,6 +56,10 @@ def _bake_item(item_id: str, render: Path, out: Path, sha: str) -> list[int]:
 
 
 def _compose(out: Path, order: list[str]) -> list[Path]:
+    repeated = [item_id for item_id, n in Counter(order).items() if n > 1]
+    if repeated:
+        raise ValueError(f"order repeats {len(repeated)} id(s), first {repeated[:3]}: "
+                         "every cell after one lands a place off")
     shas = baked_shas(out)
     written = []
     for level in SHEET_LEVELS:
