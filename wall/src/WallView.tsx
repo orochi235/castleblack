@@ -73,8 +73,9 @@ export interface WallViewProps<T extends Item> {
   header?: ReactNode;
   groupings?: WallGrouping<T>[];
   facet?: { key: string; label: string; groupOf?: (value: string) => string | null };
-  /** The body of the card a click opens. No card without it. */
-  renderCard?: (item: T, slot: string) => ReactNode;
+  /** The body of the card a click opens. No card without it. `open` opens the
+   *  detail view, as a double click does; `tint` is what the wall is colored by. */
+  renderCard?: (item: T, slot: string, card: { open: () => void; tint: string }) => ReactNode;
   /** The view a double click opens. */
   renderDetail?: (item: T, slot: string, close: () => void) => ReactNode;
   linkedBadges?: readonly string[];
@@ -84,7 +85,7 @@ export interface WallViewProps<T extends Item> {
   washColor?: string;
   ground?: string;
   describe?: (item: T) => string;
-  initial?: Partial<WallViewState>;
+  initial?: { slot?: string; selection?: Partial<SidebarSelection>; opened?: string | null };
   /** Everything a host would put in an address bar, whenever it changes. */
   onChange?: (state: WallViewState) => void;
 }
@@ -467,7 +468,10 @@ function WallViewBody<T extends Item>({
           {cardItem && carded && !opened && renderCard && (
             <ItemCard at={carded.at} viewport={size} onClose={() => setCarded(null)}
                       onHoverChange={(over) => { overCard.current = over; }}>
-              {renderCard(cardItem, drawnSlot)}
+              {renderCard(cardItem, drawnSlot, {
+                tint: selection.tint,
+                open: () => { setCarded(null); setOpened(cardItem.id); },
+              })}
             </ItemCard>
           )}
           {facts && legendOpen && (

@@ -46,7 +46,7 @@ it('shows the legend for the spec once items arrive', async () => {
 
 it('reports its state, with the selection the host started it on', async () => {
   const { onChange } = mount({
-    defaultSlot: 'north', initial: { selection: { sort: 'score' } as never },
+    defaultSlot: 'north', initial: { selection: { sort: 'score' } },
   });
   await waitFor(() => expect(onChange).toHaveBeenCalled());
   expect(onChange.mock.lastCall![0]).toMatchObject(
