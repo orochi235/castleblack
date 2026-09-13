@@ -39,7 +39,7 @@ const states: StateDef[] = [
 
 const badges: BadgeDef[] = [
   { tag: 'favorite', slot: 'corner',
-    art: { mark: 'star', corner: 'tl', field: '#d9a21b', ink: '#fff8e1' } },
+    art: { mark: 'star', corner: 'tr', field: '#d9a21b', ink: '#fff8e1' } },
   { tag: 'big', slot: 'strip', art: { text: 'B', field: '#35508f', ink: '#ffffff' } },
 ];
 
