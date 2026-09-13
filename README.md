@@ -4,10 +4,10 @@ A pan/zoom canvas over tens of thousands of items, one cell each, drawn from a
 baked mip chain of sprites, with a live status color per cell and a detail view
 behind a click. Two packages:
 
-- **[`wall`](wall/README.md)** (TypeScript) — the canvas, the level chain, the
-  layout, the chrome. Knows about items, slots and states in the abstract and
-  nothing else. **Built**, with [`hosts/demo/`](hosts/demo/README.md) showing it
-  running.
+- **[`wall`](wall/README.md)** (TypeScript, `pezlie` on npm) — the canvas, the
+  level chain, the layout, the chrome. Knows about items, slots and states in
+  the abstract and nothing else. **Built**, with
+  [`hosts/demo/`](hosts/demo/README.md) showing it running.
 - **[`bakery`](bakery/README.md)** (Python) — rasterize, square, compose
   atlases, and serve them. **Built.**
 

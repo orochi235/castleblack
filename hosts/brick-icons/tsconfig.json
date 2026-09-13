@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "types": [],
     "baseUrl": ".",
-    "paths": { "@lab/*": ["../../../brick-icons/lab/src/*"] }
+    "paths": { "@pezlie/wall/*": ["../../wall/*"], "@lab/*": ["../../../brick-icons/lab/src/*"] }
   },
   "include": ["src", "test", "bench"]
 }

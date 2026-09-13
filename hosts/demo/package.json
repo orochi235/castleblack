@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pezlie/wall": "0.1.0",
+    "pezlie": "0.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

@@ -1,9 +1,16 @@
-# wall
+# pezlie
 
 A pan/zoom wall over tens of thousands of items: which state each item is in,
 which items are on the wall and in what order, what color each cell is, how a
 frame is drawn, where the pictures come from, and the React page around it all.
 It knows nothing about what the items are.
+
+```bash
+npm install pezlie
+```
+
+It needs React 19 and a bundler that handles CSS imports. The pictures come
+from [`bakery`](https://github.com/orochi235/pezlie/tree/main/bakery).
 
 ## What a host supplies
 

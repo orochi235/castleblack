@@ -1,5 +1,5 @@
 {
-  "name": "pezlie",
+  "name": "pezlie-workspace",
   "private": true,
   "workspaces": [
     "wall",
