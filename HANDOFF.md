@@ -4,9 +4,9 @@
 `orochi235/castleblack` (private), with a demo host drawing a generated corpus in
 a browser. What is left is step 7: brick-icons switching to both packages.
 
-**A parallel `/wall` page is built, not merged.** brick-icons branch `wall-view`
-(worktree `~/src/brick-icons/.claude/worktrees/wall-view`, unpushed) draws the
-corpus through `WallView` beside `CorpusWall`, which is untouched. On `occt` its
+**A parallel `/wall` page is on brick-icons `main`** (`f5bb708`, `fbbc19e`, not
+pushed). It draws the corpus through `WallView` beside `CorpusWall`, which is
+untouched. On `occt` its
 legend counts match `/corpus` exactly, the card and lightbox work, and either
 wall's hash opens the other.
 
@@ -59,10 +59,11 @@ Python's bytecode cache keys on mtime and size. Patch in memory.
 **A top-left badge sits on a top-left caption.** Only top-right captions make
 room; brick-icons has the same overlap.
 
-**`/wall` reads castleblack's working tree**, whatever is checked out beside
-brick-icons (or `$CASTLEBLACK`), through a vite alias and tsconfig paths. vite
-skips the page when castleblack is absent; `tsc -b` does not, so merging
-`wall-view` as it stands breaks `npm run build` on a render node.
+**brick-icons pins castleblack by sha.** `lab/package.json` installs this repo
+from GitHub, so a castleblack change reaches `/wall` only when that sha moves;
+`CASTLEBLACK=~/src/castleblack npm run dev` reads the checkout instead. `npm ci`
+in the lab needs read access to this private repo. The render nodes never run
+npm.
 
 **The spec's CEL tables trail brick-icons.** A key brick-icons adds to its
 states, filters, classes or sorts makes `hosts/brick-icons/src/spec.ts` throw on
