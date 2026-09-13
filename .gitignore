@@ -5,3 +5,4 @@ spike/cel/.venv/
 spike/cel/results.*.json
 bakery/.venv/
 __pycache__/
+node_modules/
