@@ -969,7 +969,7 @@ def render_router(render_file: Callable[[str, str], Path | None], root: Path,
 
 **Files:** Create `tests/test_parity.py`.
 
-This is a characterization test, so it is expected to pass on first run. Prove it can fail before trusting it: change `THUMB_SAVE`'s quality to 89 in `bake.py`, watch it fail, change it back.
+This is a characterization test, so it is expected to pass on first run. Prove it can fail before trusting it by patching `bake.THUMB_SAVE` to quality 89 **in memory** and calling the test function. Do not edit `bake.py` for this: `89` and `90` are the same length, two edits inside one second leave the file's mtime and size unchanged, and Python keeps serving the bytecode compiled from the mutated source.
 
 - [ ] **Step 1: Write the test**
 
@@ -1040,7 +1040,24 @@ def test_a_slot_bakes_to_the_same_bytes_as_the_code_it_was_lifted_from(tmp_path)
 ```
 
 - [ ] **Step 2: Run** `bakery/.venv/bin/python -m pytest bakery/tests/test_parity.py -q` — Expected: `1 passed`.
-- [ ] **Step 3: Prove it can fail** — set `"quality": 89` in `THUMB_SAVE`, rerun, expect FAIL listing every tile and sheet; restore `90`, rerun, expect pass.
+- [ ] **Step 3: Prove it can fail**
+
+```bash
+cd bakery && .venv/bin/python - <<'EOF'
+import tempfile
+from pathlib import Path
+from bakery import bake
+import tests.test_parity as t
+bake.THUMB_SAVE = {**bake.THUMB_SAVE, "quality": 89}
+try:
+    t.test_a_slot_bakes_to_the_same_bytes_as_the_code_it_was_lifted_from(Path(tempfile.mkdtemp()))
+    print("PASSED -- the test cannot see an encoding change")
+except AssertionError:
+    print("FAILED, as it should")
+EOF
+```
+
+Expected: `FAILED, as it should`.
 - [ ] **Step 4: Commit** — `git commit -m "pin bakery's output to the brick-icons bake it was lifted from"`
 
 ## Task 8: Parity on real renders
