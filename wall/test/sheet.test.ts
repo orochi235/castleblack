@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { isStale, sourceBox, type SheetManifest } from '../src/sheet';
+import { isStale, sourceBox, staleCount, type SheetManifest } from '../src/sheet';
 
 const manifest: SheetManifest = {
   level: 32, gutter: 2, pitch: 36, cols: 2, rows: 2, count: 4, size: 72,
@@ -21,6 +21,16 @@ it('calls an item stale when the store has moved past the bake', () => {
   expect(isStale(manifest, { id: 'a', sha: 'sha-a' })).toBe(false);
   expect(isStale(manifest, { id: 'a', sha: 'sha-new' })).toBe(true);
   expect(isStale(manifest, { id: 'c', sha: 'sha-c' })).toBe(true);
+});
+
+it('counts a tile missing only for an item that has a picture to bake', () => {
+  const items = [
+    { id: 'a', sha: 'sha-a' },
+    { id: 'b', sha: 'sha-newer' },
+    { id: 'c', sha: 'sha-c' },
+    { id: 'd', sha: null },
+  ];
+  expect(staleCount(manifest, items)).toEqual({ stale: 1, missing: 1, total: 4 });
 });
 
 it('does not call an item with no picture stale', () => {

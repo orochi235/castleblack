@@ -60,7 +60,8 @@ export function staleCount(m: SheetManifest,
   let stale = 0;
   let missing = 0;
   for (const item of items) {
-    if (!hasTile(m, item)) missing++;
+    // An item with no picture has nothing to bake, so no tile is not missing.
+    if (!hasTile(m, item)) { if (item.sha !== null) missing++; }
     else if (isStale(m, item)) stale++;
   }
   return { stale, missing, total: items.length };
