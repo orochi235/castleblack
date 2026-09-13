@@ -1,14 +1,17 @@
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
-export const LAB = resolve(process.env.BRICK_ICONS ?? resolve(__dirname, '../../../brick-icons'), 'lab/src');
-
-if (!existsSync(LAB)) {
-  console.warn(`no brick-icons lab source at ${LAB}: parity tests will fail to import`);
-}
+const LAB = resolve(
+  process.env.BRICK_ICONS ?? resolve(import.meta.dirname, '../../../brick-icons'), 'lab/src');
 
 export default defineConfig({
-  resolve: { alias: { '@lab': LAB } },
+  resolve: {
+    alias: {
+      '@lab': LAB,
+      // brick-icons' source resolves its own imports from wherever it sits,
+      // which need not have a node_modules; use this workspace's copy.
+      '@weasel-js/core': resolve(import.meta.dirname, '../../node_modules/@weasel-js/core'),
+    },
+  },
   test: { environment: 'node', include: ['test/**/*.test.ts'] },
 });
