@@ -242,8 +242,9 @@ all: the bake is transparent and the wall paints the ground under every rung.
 `bakery` keeps that and asserts it at the pixel.
 
 **brick-icons does not import `bakery` yet.** A path dependency onto castleblack
-would break `uv sync` on every render node without a castleblack checkout, and
-castleblack has no remote. That is step 7.
+would break `uv sync` on every render node without a castleblack checkout. The
+private remote makes a git dependency possible, once the nodes can read it.
+That is step 7.
 
 The item feed, `/api/corpus/cells`, did not move: it becomes `derive` over the
 schema in step 5.

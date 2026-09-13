@@ -7,8 +7,8 @@ spec's Open. The remote is `orochi235/castleblack`, private.
 ## Where things are
 
 - `docs/superpowers/specs/2026-09-07-abstract-wall-design.md` — the design,
-  brought up to brick-icons `6bbc739`. Read this first; its "Open" section holds
-  the blocking question.
+  brought up to brick-icons `6bbc739`. Read this first; its "Open" section records
+  the weasel decision.
 - `docs/superpowers/plans/` — Phase 1 (states as data, built in brick-icons) and
   Phase 2 (`bakery`, built here). Each ends with "What it found".
 - `bakery/` — the package. `bakery/README.md` is the host contract and the
