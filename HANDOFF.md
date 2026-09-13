@@ -4,6 +4,12 @@
 `orochi235/castleblack` (private), with a demo host drawing a generated corpus in
 a browser. What is left is step 7: brick-icons switching to both packages.
 
+**A parallel `/wall` page is built, not merged.** brick-icons branch `wall-view`
+(worktree `~/src/brick-icons/.claude/worktrees/wall-view`, unpushed) draws the
+corpus through `WallView` beside `CorpusWall`, which is untouched. On `occt` its
+legend counts match `/corpus` exactly, the card and lightbox work, and either
+wall's hash opens the other.
+
 ## Where things are
 
 - `docs/superpowers/specs/2026-09-07-abstract-wall-design.md` — the design and
@@ -53,13 +59,24 @@ Python's bytecode cache keys on mtime and size. Patch in memory.
 **A top-left badge sits on a top-left caption.** Only top-right captions make
 room; brick-icons has the same overlap.
 
+**`/wall` reads castleblack's working tree**, whatever is checked out beside
+brick-icons (or `$CASTLEBLACK`), through a vite alias and tsconfig paths. vite
+skips the page when castleblack is absent; `tsc -b` does not, so merging
+`wall-view` as it stands breaks `npm run build` on a render node.
+
+**The spec's CEL tables trail brick-icons.** A key brick-icons adds to its
+states, filters, classes or sorts makes `hosts/brick-icons/src/spec.ts` throw on
+load; the parity tests catch it.
+
 **`_pw_npm_token: command not found`** after npm commands is shell noise from
 the work profile, not a failure.
 
 ## Next
 
-1. **Plan step 7** in a brick-icons worktree: the lab's `CorpusWall` becomes a
-   `WallView` host (its lightbox as `renderDetail`, `PartCard` body as
-   `renderCard`, `wallHash` through `onChange`), `thumbs.py` gives way to
-   `bakery`, and the brick-icons spec moves from `hosts/brick-icons/` into the
-   lab. brick-icons' render nodes need read access to this private repo first.
+1. **Close the gaps between `/wall` and `/corpus`**, each needing a `WallView`
+   surface first: part search (`PartSearch` has to reveal and open an item),
+   the Engine/Legacy/Reference/Decal slot groups (`FilterBar`), and the camera
+   and caret in the hash.
+2. **Plan the rest of step 7**: `thumbs.py` gives way to `bakery` (not
+   started), the brick-icons spec moves into the lab, `/wall` replaces
+   `/corpus`, and the render nodes get read access to this private repo.

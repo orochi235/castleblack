@@ -6,7 +6,8 @@ tints, paint commands) and its view (drawing, loaders, `Wall`, the chrome, and
 `WallView`, a whole wall as a lab page). `hosts/brick-icons/` reproduces
 brick-icons' 55 paint goldens; `hosts/demo/` is a generated corpus baked by
 `bakery` and drawn by `WallView`. Unbuilt: brick-icons switching to the
-packages. Checked against brick-icons `fa91c59` (2026-09-13).
+packages, which so far is a `/wall` page beside the legacy wall on brick-icons
+branch `wall-view`. Checked against brick-icons `fa91c59` (2026-09-13).
 
 This is the design for pulling the corpus wall out of `brick-icons` into two
 domain-free packages, with the LEGO corpus as the first host. It is for whoever
