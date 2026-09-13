@@ -50,6 +50,8 @@ const SORT_VALUE: Record<string, string> = {
   category: 'item.category',
   status: 'item.status',
   extra_d99: 'item.extra_d99',
+  missing_comps: 'has(item.missing_comps) ? item.missing_comps : null',
+  missing_edges: 'has(item.missing_edges) ? item.missing_edges : null',
   secs: 'item.secs',
   made_at: 'item.made_at',
   error_at: 'has(item.error_at) ? item.error_at : null',
