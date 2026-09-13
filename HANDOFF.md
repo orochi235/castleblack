@@ -1,7 +1,7 @@
 # castleblack — pickup state
 
 **2026-09-13.** `bakery` and `wall` are built and on `main`, pushed to
-`orochi235/castleblack` (private), with a demo host drawing a generated corpus in
+`orochi235/castleblack` (public), with a demo host drawing a generated corpus in
 a browser. What is left is step 7: brick-icons switching to both packages.
 
 **A parallel `/wall` page is on brick-icons `main`** (`f5bb708`, `fbbc19e`, not
@@ -31,7 +31,8 @@ gitignored and recreated from each README.
 
 ## What is decided that the code does not say
 
-**The name.** `castleblack` for now; `yumyulack` is the alternative.
+**The name.** `castleblack` for now; `yumyulack` is the alternative. On npm,
+`castleblack` is a parked 0.0.0 someone else owns; `yumyulack` is free.
 
 **Display projections may be hooks; predicates may not.** States, filters,
 classes, sorts, tags and the wash flag are CEL so a Python feed can evaluate
@@ -61,9 +62,9 @@ room; brick-icons has the same overlap.
 
 **brick-icons pins castleblack by sha.** `lab/package.json` installs this repo
 from GitHub, so a castleblack change reaches `/wall` only when that sha moves;
-`CASTLEBLACK=~/src/castleblack npm run dev` reads the checkout instead. `npm ci`
-in the lab needs read access to this private repo. The render nodes never run
-npm.
+`CASTLEBLACK=~/src/castleblack npm run dev` reads the checkout instead. The
+repo is public, so any clone's `npm ci` fetches it over HTTPS despite the
+`git+ssh` URL npm writes in the lockfile. The render nodes never run npm.
 
 **The spec's CEL tables trail brick-icons.** A key brick-icons adds to its
 states, filters, classes or sorts makes `hosts/brick-icons/src/spec.ts` throw on
@@ -80,4 +81,4 @@ the work profile, not a failure.
    and caret in the hash.
 2. **Plan the rest of step 7**: `thumbs.py` gives way to `bakery` (not
    started), the brick-icons spec moves into the lab, `/wall` replaces
-   `/corpus`, and the render nodes get read access to this private repo.
+   `/corpus`.

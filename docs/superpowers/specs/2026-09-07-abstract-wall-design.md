@@ -214,8 +214,8 @@ all: the bake is transparent and the wall paints the ground under every rung.
 
 **brick-icons does not import `bakery` yet.** A path dependency onto castleblack
 would break `uv sync` on every render node without a castleblack checkout. The
-private remote makes a git dependency possible, once the nodes can read it.
-That is step 7.
+repo is public, so a git dependency pinned by sha works there, as the lab's
+already does. That is step 7.
 
 The item feed, `/api/corpus/cells`, did not move: it stays the host's SQL, and
 `wall`'s `derive` reads what it sends.
@@ -302,12 +302,13 @@ gate.
 in castleblack**, depending on `@weasel-js/core`, `labkit` and `ui` from npm. It
 owns both executors, and the demo host's leak check runs here. Folding it into
 weasel was weighed and turned down. What follows from that: brick-icons installs
-`wall` and `bakery` from castleblack's private GitHub repo, so its render nodes
-need read access to it before step 7 — and any renderer feature the 2D overlay covers
+`wall` and `bakery` from castleblack's public GitHub repo, pinned by sha — and any
+renderer feature the 2D overlay covers
 today lands as a weasel release that `wall` then picks up.
 
 **Name.** `castleblack` for now; `yumyulack` is the alternative, recorded under
-the README title. Deciding it late costs a directory rename and an import path
+the README title. On npm, `castleblack` is a parked 0.0.0 someone else owns;
+`yumyulack` is free. Deciding it late costs a directory rename and an import path
 sweep.
 
 **CEL implementation: settled — `@bufbuild/cel`.** Not on the expression corpus,
