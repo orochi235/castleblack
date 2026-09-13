@@ -1,6 +1,10 @@
 # The abstract wall
 
-**Status: designed, not built.** Nothing in this repo implements any of it.
+**Status: steps 1–4 of the order of work are built; `wall` is not.** The CEL
+spike and the `bakery` package live in this repo; the paint goldens and the
+state tables are in brick-icons. Steps 5–7 are unbuilt, and where `wall` sits
+waits on the weasel question under Open. Checked against brick-icons `6bbc739`
+(2026-09-13).
 
 This is the design for pulling the corpus wall out of `brick-icons` into two
 domain-free packages, with the LEGO corpus as the first host. It is for whoever
@@ -11,19 +15,48 @@ It supersedes `wall/README.md`, which is kept in git history at `a1fffd0`.
 
 ## What is actually being extracted
 
-The renderer is already domain-free. `PaintCommand` is geometry, colors, glyphs
-and atlas source boxes — nothing about LEGO reaches it. What is bound to LEGO is
-the decision layer directly above: `cellState`, `badgesFor`, `stripFor`,
-`captionsFor`, `isRetired`, `glyphFor`, `markFor`, `tintFor`, and the sort,
-filter and class tables in `select.ts`.
+`PaintCommand` is geometry, colors, glyphs and atlas source boxes — nothing
+about LEGO reaches it. What is bound to LEGO is the decision layer directly
+above: the state table in `states.ts`, the sort, filter and class table in
+`criteria.ts`, the tints in `tint.ts`, and `badgesFor`, `stripFor`,
+`captionsFor`, `isRetired`, `glyphFor` and `markFor` in `paint.ts`.
 
-The Python bake is in the same shape. `thumbs.py` says `part_id` but means `id`:
-`geometry`, `bake_part`, `compose`, edge replication and the atomic sidecar are
-already generic. The LEGO lives entirely in `lab/cells.py`, which is SQL against
-the brick-icons schema and stays with the host.
+**The wall no longer draws with one loop.** `paintCommands` is still the
+boundary, but two executors now sit under it: `drawScene.ts` hands cell bodies
+to weasel's scene renderer (measured faster at every level), and `draw2d.ts`
+draws what weasel cannot — badges, the kind strip, captions, the caret, band
+labels, the category glyph and the sticker mark — on a 2D canvas stacked over
+it. `toDrawCommands.ts` maps one to the other. Both executors name two LEGO
+features, the sticker mark and the category glyph, plus `RETIRED_WASH`; those
+become host hooks.
 
-So this is not a rewrite. It is one new concept — a corpus schema — plus the
-work of making eight hardcoded states into a table.
+The Python bake is lifted — see Bakery. The LEGO there lives entirely in
+`brick_icons/lab/cells.py`, which is SQL against the brick-icons schema and
+stays with the host.
+
+So this is not a rewrite. It is one new concept — a corpus schema — over tables
+that brick-icons already keeps as data.
+
+### What the tables have grown that the interface below does not carry
+
+The `CorpusSpec` sketch predates these, and step 5 has to give each a home:
+
+- **Derived variants.** A state marked as having a sibling generates
+  `<key>Elsewhere`: the same fill, a washed-out border, thin weight, precedence
+  40 lower, matched from a list of condition keys the server computes. The
+  legend folds each variant into its parent's row and count.
+- **Two orders.** Matching precedence is written separately from legend order.
+- **Drawn versus undrawn.** An undrawn cell with a border gets a slash; a drawn
+  one wears the border color as the ground behind its tile.
+- **State-keyed decoration.** `outOfScope` swaps captions and badges for a
+  category initial or a sticker picture.
+- **Measured tints.** Linear or log scales with constants calibrated on the
+  corpus, an inverse mapping for the legend's ticks, a flat tone for a missing
+  value, and an 8-step ramp picked by name. A measured tint replaces the ground,
+  drops the border, and swaps the legend's state rows for a scale.
+- **Classes are enforced on the server too.** The stats API filters by the
+  same classes in SQL; brick-icons pins the two lists together with a test
+  that compares their keys (`03de725`).
 
 ## The seam
 
@@ -143,50 +176,77 @@ hidden in the front end rather than dropped from the parts table.
 
 ## What moves where
 
+Every non-test file in `lab/src/corpus/`, as of `6bbc739`:
+
 | To `wall` unchanged | To `wall`, `Cell`→`Item` | Splits | Stays in brick-icons |
 |---|---|---|---|
-| `levels` `visible` `clamp` `reveal` `caret` `sheet` `svgRaster` `grouped` (`flowBlocks`) | `layout` `Wall.tsx` `useCells` `useSheets` `useLooseThumbs` `useVectorThumbs` `badges` (disc drawing) | `paint` `palette` `params` `select` `markPaths` `Legend` `Sidebar` `Lightbox` `PartCard` | `types` `facts` `families` `years` `catalogs` `tags` `cells.py` |
+| `clamp` `visible` `reveal` `caret` `pinch` `sheet` `svgRaster` `levels` `natural` `useVisualViewport` `cacheReport` `CacheFailureButton` `ParamsPanel` `useParams` | `grouped` `layout` `useCells` `useSheets` `useLooseThumbs` `useVectorThumbs` `badges` `BadgeSwatch` `TintScale` | `Wall` `draw2d` `drawScene` `toDrawCommands` `paint` `palette` `params` `states` `criteria` `tint` `select` `wallHash` `markShapes` `Legend` `Sidebar` `PartCard` `CorpusWall` `corpus.css` `Lightbox` `types` | `facts` `families` `years` `catalogs` `tags` `markPaths` `flag` `slotFamily` `posed` `FilterBar` `Fingerprint` `PartOrbit` `badgesPreview` `stickerCandidates` `main` |
 
-The four splits are the work:
+The splits are the work. Where a split's LEGO half is not obvious:
 
-**`paint`** keeps `paintCommands` and every geometry helper. The deciders leave.
+**`paint`** keeps `paintCommands` and every geometry helper. The badge axes
+(minifig, technic, duplo, printed, retired), the category glyph and the year
+and family captions leave.
 
-**`palette` + `params`** are the expensive half. The eight states are
-hand-enumerated **ten times**: in `palette.ts` the `CellState` union,
-`CELL_PALETTE`, `PROPERTY`'s CSS variable names, `PARAM_CSS_VAR` and
-`STATE_LABEL`; in `params.ts` the `Params` color fields, their
-`DEFAULT_PARAMS` values, `COLOR_PARAM_KEYS` and `COLOR_LABEL`; and in
-`paint.ts` the `cellState` precedence chain. All of it derives from `states`
-instead, and the params panel's color rows generate from that list rather than
-from a fixed `ColorParamKey`. This single change touches `palette.ts`,
-`params.ts`, `useParams.ts`, `ParamsPanel.tsx`, `paint.ts`, `Legend.tsx` and
-every test over them.
+**`states`, `criteria`, `palette`, `params`** — the machinery (spec shapes,
+precedence, variant derivation, generated CSS variables and param rows) stays;
+the rows leave. Phase 1 already made every one of these read from the rows.
 
-**`select`** loses `SORTS`, `FILTERS`, `CLASSES`, `KEEP` and `key` — every one is
-a LEGO field name. The machinery stays and reads the spec.
+**`Wall`** has one LEGO hit test: clicking the "replaced" badge jumps to
+`cell.successor`. **`wallHash`** is a generic hash codec with LEGO fields in it.
 
-**`markPaths`** is badge art, and most of it is LEGO: `minifig`, `technic`,
-`duplo`, `brush`, `magnet`, `composite` go to the host's `hooks.mark`.
-`star`, `archive` and `redo` are generic enough to keep as a starter set.
+**`markShapes`** holds the mark shape type, path builders and punches, which
+stay, and the LEGO mark set, which goes to `hooks.mark`. `markPaths` is only
+three LEGO polylines and stays whole.
+
+**`types`** is mostly `Cell` and `PartDetail`, but `SheetManifest` — which
+`sheet.ts` needs — is the generic atlas shape.
+
+**`Lightbox`** is about 90% host: catalog links, defect filing, the 3D orbit,
+slot tiles. The wall keeps the modal.
+
+Coupling the table does not show:
+
+- **The loaders hard-code brick-icons URLs** (`/api/thumbs/...`,
+  `/api/corpus/render/...`). They need a URL builder from the host; `bakery`'s
+  routes are mounted at those prefixes so brick-icons' URLs can stay as they are.
+- **Files marked unchanged still reach into splits.** `levels` and `useCells`
+  read `DEFAULT_PARAMS`, whose color defaults come from the LEGO state rows, and
+  `grouped` imports `UNKNOWN` from `facts`.
+- **Other lab pages import the wall.** `lab/src/bench` uses `layout`, `paint`,
+  `palette`, `useSheets`, `levels`, `visible` and all three executors;
+  `lab/src/stats` uses `criteria`, `wallHash` and `facts`.
+- **The weasel dependency.** `clamp`, `visible`, `reveal`, `caret`, `pinch`,
+  `paint`, `drawScene` and `toDrawCommands` use `@weasel-js/core`; `Wall`,
+  `Legend`, `ParamsPanel` and `CorpusWall` use `@weasel-js/labkit` (the loupe
+  and panels); `CorpusWall` and `FilterBar` use `@weasel-js/ui`.
 
 **Chrome** — the wall owns the hover card, modal, filter rail and legend,
 driven by `fields`. The host supplies bodies only through `hooks.render`.
 
 ## Bakery
 
-`thumbs.py` lifts nearly whole, joined by a mountable route module for the four
-`/api/corpus/*` endpoint shapes. The host supplies the item feed and the
-renderable lookup; `cells.py` does not move.
+**Built** — `bakery/`, plan at
+`docs/superpowers/plans/2026-09-13-phase-2-bakery.md`. `thumbs.py`, the per-slot
+loop from `scripts/bake-thumbs.py`, and the sheet, tile and render routes from
+the lab server, renamed from part to item. `bakery/README.md` is the host
+contract. A test bakes the same inputs through brick-icons' `thumbs.py` and
+`bakery` and requires identical bytes.
 
-Two changes go in with the lift:
+**Single writer.** Baking and composing take a lock in the slot directory and
+raise rather than interleave. **A repeated id in the order is refused**, since
+it would shift every later cell.
 
-**Ground color stops being a shared constant.** `bakery` declares `GROUND`, the
-sheet manifest reports it, and the wall reads it from the manifest instead of
-`THUMB_GROUND`. The Python test that parses the TypeScript to pin the two
-together is deleted.
+**The ground-color change was dropped.** brick-icons stopped baking a ground at
+all: the bake is transparent and the wall paints the ground under every rung.
+`bakery` keeps that and asserts it at the pixel.
 
-**Single writer.** Two bakers over one output directory corrupt it. `compose`
-takes a lockfile in the out directory and refuses rather than interleaving.
+**brick-icons does not import `bakery` yet.** A path dependency onto castleblack
+would break `uv sync` on every render node without a castleblack checkout, and
+castleblack has no remote. That is step 7.
+
+The item feed, `/api/corpus/cells`, did not move: it becomes `derive` over the
+schema in step 5.
 
 ## Failure modes
 
@@ -242,16 +302,24 @@ gate.
    thought to write down: the corpus passed both candidates, and the probe that
    separated them (`regex-probe.mjs` / `regex-probe.py`) had to be written after
    the corpus came back clean.
-2. **Capture paint goldens** from brick-icons as it stands.
-3. **States to a table**, in place in brick-icons, still with the LEGO table.
-   Goldens must not move. This is the risky edit and it happens where it can be
-   checked against a working wall.
-4. **Lift `bakery`**, with the ground color and lock changes.
-5. **Lift `wall`**, host adapter written against `CorpusSpec`.
+2. ~~**Capture paint goldens**~~ **Done** — 45 at capture, 55 now, in
+   brick-icons `lab/src/corpus/goldens/`.
+3. ~~**States to a table**~~ **Done** in brick-icons (Phase 1), and the sort,
+   filter and class vocabulary with it.
+4. ~~**Lift `bakery`**~~ **Done** — see Bakery.
+5. **Lift `wall`**, host adapter written against `CorpusSpec`. Blocked on the
+   weasel question under Open.
 6. **Demo host**, and the leak check that `wall`'s suite names nothing LEGO.
 7. **brick-icons switches** to consuming both by path, deletes its copy.
 
 ## Open
+
+**Where `wall` sits relative to weasel.** The wall now depends on three weasel
+packages — view math, the loupe and panels, and the top bar controls — and
+draws cell bodies through weasel's scene renderer. `wall` can be its own
+package depending on those, or a package inside weasel. The answer decides which
+repo owns the executors and where the demo host's leak check runs, and step 5
+cannot be planned without it.
 
 **Name.** `castleblack` for now; `yumyulack` is the alternative, recorded under
 the README title. Deciding it late costs a directory rename and an import path
@@ -281,4 +349,6 @@ schema-authoring rule, not code.
 **Timing.** The earlier writeup argued for waiting until the census stops
 landing renders, on the grounds that the wall is the instrument being used to
 watch it. That argument has not been retired — step 3 is a live edit to a live
-instrument, and the goldens in step 2 are what make it survivable.
+instrument, and the goldens in step 2 are what make it survivable. The week
+after Phase 1 landed, brick-icons committed to `lab/src/corpus/` every day, so
+lifting `wall` means lifting a moving target.
