@@ -1,6 +1,8 @@
 # Phase 2: lift `bakery` — Implementation Plan
 
-> **IN PROGRESS — 2026-09-13**, branch `phase-2-bakery`. Update this line when it lands.
+> **BUILT — 2026-09-13**, branch `phase-2-bakery` fast-forwarded to `main`.
+> 44 tests pass. Byte parity with brick-icons' `thumbs.py` holds on real renders
+> from all nine slots — see "What it found" at the foot.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1079,3 +1081,17 @@ A one-off, not committed code: bake a sample of real renders from each slot thro
 - brick-icons does not import `bakery` yet (see "What changed since the spec was written").
 - No item feed, no schema, no CEL.
 - No reader-side atomicity for sheet images: a route serving a sheet mid-write can still hand out a partial file. The lock stops writers colliding, not readers.
+
+## What it found
+
+**Parity holds on real data.** `scripts/brick-icons-bake-parity.py` baked 150
+randomly sampled renders from each of brick-icons' nine slots — eight SVG, one
+WebP — through both implementations, and composed each against the full
+24,591-part order. 1,350 renders, 4,095 files, 0 differ, 0 unreadable.
+
+**A byte comparison can fail with every pixel identical.** The first real run
+reported nearly every file different while the decoded images matched exactly.
+The cause was the mutation check, not the lift: see Task 7, step 3. Byte
+parity is still the right bar — a pixel comparison would not catch an encoder
+setting drifting — but a failure needs a pixel check beside it before it is
+read as a logic change.

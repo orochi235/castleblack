@@ -8,11 +8,12 @@ behind a click. Two packages:
 
 - **`wall`** (TypeScript) — the canvas, the level chain, the layout, the
   chrome. Knows about items, slots and states in the abstract and nothing else.
-- **`bakery`** (Python) — rasterize, square, compose atlases, serve them and
-  the item feed.
+  **Not built yet.**
+- **[`bakery`](bakery/README.md)** (Python) — rasterize, square, compose
+  atlases, and serve them. **Built.**
 
 A host supplies a corpus and a schema describing it; the wall draws it.
 `brick-icons` is the first host, with 24,591 LEGO parts.
 
-**Nothing is built yet.** The design is
+The design, and what is built of it, is
 [`docs/superpowers/specs/2026-09-07-abstract-wall-design.md`](docs/superpowers/specs/2026-09-07-abstract-wall-design.md).
