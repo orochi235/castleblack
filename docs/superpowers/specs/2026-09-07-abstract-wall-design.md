@@ -2,8 +2,8 @@
 
 **Status: steps 1–4 of the order of work are built; `wall` is not.** The CEL
 spike and the `bakery` package live in this repo; the paint goldens and the
-state tables are in brick-icons. Steps 5–7 are unbuilt, and where `wall` sits
-waits on the weasel question under Open. Checked against brick-icons `6bbc739`
+state tables are in brick-icons. Steps 5–7 are unbuilt. `wall` is its own package
+in this repo, depending on weasel (decided 2026-09-13). Checked against brick-icons `6bbc739`
 (2026-09-13).
 
 This is the design for pulling the corpus wall out of `brick-icons` into two
@@ -307,19 +307,20 @@ gate.
 3. ~~**States to a table**~~ **Done** in brick-icons (Phase 1), and the sort,
    filter and class vocabulary with it.
 4. ~~**Lift `bakery`**~~ **Done** — see Bakery.
-5. **Lift `wall`**, host adapter written against `CorpusSpec`. Blocked on the
-   weasel question under Open.
+5. **Lift `wall`**, host adapter written against `CorpusSpec`. Its own package
+   here, depending on weasel.
 6. **Demo host**, and the leak check that `wall`'s suite names nothing LEGO.
 7. **brick-icons switches** to consuming both by path, deletes its copy.
 
 ## Open
 
-**Where `wall` sits relative to weasel.** The wall now depends on three weasel
-packages — view math, the loupe and panels, and the top bar controls — and
-draws cell bodies through weasel's scene renderer. `wall` can be its own
-package depending on those, or a package inside weasel. The answer decides which
-repo owns the executors and where the demo host's leak check runs, and step 5
-cannot be planned without it.
+**Where `wall` sits relative to weasel: decided 2026-09-13 — a separate package
+in castleblack**, depending on `@weasel-js/core`, `labkit` and `ui` from npm. It
+owns both executors, and the demo host's leak check runs here. Folding it into
+weasel was weighed and turned down. What follows from that: brick-icons cannot
+install `wall` until castleblack is reachable from its render nodes — the same
+gap that keeps it off `bakery` — and any renderer feature the 2D overlay covers
+today lands as a weasel release that `wall` then picks up.
 
 **Name.** `castleblack` for now; `yumyulack` is the alternative, recorded under
 the README title. Deciding it late costs a directory rename and an import path

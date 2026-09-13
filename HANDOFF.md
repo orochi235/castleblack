@@ -1,7 +1,8 @@
 # castleblack — pickup state
 
-**2026-09-13.** `bakery` is built and on `main`; `wall` is not, and cannot be
-planned until the weasel question below is answered. castleblack has no remote.
+**2026-09-13.** `bakery` is built and on `main`; `wall` is not. `wall` will be
+its own package here, depending on weasel — decided, and recorded under the
+spec's Open. castleblack has no remote.
 
 ## Where things are
 
@@ -50,9 +51,8 @@ so lifting `wall` moves their imports too.
 
 ## Next
 
-1. **Answer the weasel question** — `wall` as its own package depending on
-   `@weasel-js/core`, `labkit` and `ui`, or a package inside weasel.
-2. **Plan step 5, lifting `wall`,** against the spec's move table and its list
+1. **Plan step 5, lifting `wall`,** against the spec's move table and its list
    of what the tables have grown. brick-icons commits to `lab/src/corpus/`
    daily, so re-read `main` before planning.
-3. Steps 6 and 7 — the demo host, then brick-icons switching to both packages.
+2. Steps 6 and 7 — the demo host, then brick-icons switching to both packages.
+   Step 7 needs castleblack reachable from brick-icons' render nodes first.
