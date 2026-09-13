@@ -12,5 +12,5 @@
     "baseUrl": ".",
     "paths": { "@lab/*": ["../../../brick-icons/lab/src/*"] }
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "bench"]
 }
