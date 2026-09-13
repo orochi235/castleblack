@@ -60,7 +60,7 @@ export function compileSpec<T extends Item>(spec: CorpusSpec<T>):
     try {
       const run = plan(ENV, parse(expr));
       return (item) => {
-        const out = run({ item });
+        const out = run({ item } as unknown as Parameters<typeof run>[0]);
         if (!isCelError(out)) return plain(out);
         // A field the feed does not send is absent, not fatal: the server can
         // be older than the page reading it.
