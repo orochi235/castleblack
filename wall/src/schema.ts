@@ -4,6 +4,8 @@
  *  the same rule. Display projections may name a TypeScript hook instead.
  */
 
+import type { Marks } from './marks';
+
 export type Expr = string;
 export type Projection = { expr: Expr } | { hook: string };
 
@@ -129,5 +131,7 @@ export interface CorpusSpec<T extends Item = Item> {
   /** What a quiet cell wears: a mark if it has one, else a glyph. */
   glyph?: Projection;
   mark?: Projection;
+  /** The art a badge's or quiet cell's `mark` names. */
+  marks?: Marks;
   hooks?: Record<string, (item: T) => unknown>;
 }
