@@ -1,0 +1,84 @@
+/* The app is the page: the default body margin puts a strip of nothing
+ * around a shell that manages its own edges. */
+body { margin: 0; }
+
+.lk-root {
+  /* Every floating panel is this wide, and a pan may leave this much of the
+   * wall blank: enough to pull the cells under a panel into the open. */
+  --wall-panel-width: 17rem;
+}
+
+/* The header row aligns on the baseline, which staggers boxes of mixed
+ * controls; these are boxes in a toolbar and align by their centers. */
+.lk-shell-header, .lk-shell-header-actions { align-items: center; }
+
+.wall-app {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  background: var(--wzl-surface-sunken);
+  color: var(--wzl-fg);
+}
+
+.wall-stage { flex: 1; overflow: hidden; position: relative; }
+
+.wall-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: 12px/1.4 ui-monospace, monospace;
+  color: var(--wzl-fg-muted);
+}
+
+.wall-skeleton {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(128 128 128 / 14%) 32px, transparent 32px),
+    linear-gradient(to bottom, rgb(128 128 128 / 14%) 32px, transparent 32px);
+  background-size: 36px 36px;
+  animation: wall-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.wall-skeleton__say {
+  position: absolute;
+  inset-inline-start: 1rem;
+  inset-block-start: 1rem;
+  font: 13px/1.4 ui-monospace, monospace;
+  color: var(--wzl-fg-muted);
+}
+
+/* Over the cells rather than in the header: the wash it explains is on the
+ * cells, and a note in the chrome is read after the wall. */
+.wall-stale {
+  position: absolute;
+  inset-inline-start: 1rem;
+  inset-block-start: 1rem;
+  z-index: 2;
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.35rem;
+  background: var(--wzl-bg, #fff);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  font: 13px/1.4 ui-monospace, monospace;
+  color: var(--wzl-fg-muted);
+}
+
+.wall-stale b { color: var(--wzl-fg); font-weight: 500; }
+
+.wall-problems {
+  padding: 1.5rem 2rem;
+  font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+  color: var(--wzl-fg);
+}
+
+.wall-problems code { font-family: ui-monospace, monospace; }
+
+@keyframes wall-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-skeleton { animation: none; }
+}

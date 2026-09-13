@@ -1,7 +1,11 @@
 {
   "name": "castleblack",
   "private": true,
-  "workspaces": ["wall", "hosts/brick-icons"],
+  "workspaces": [
+    "wall",
+    "hosts/brick-icons",
+    "hosts/demo"
+  ],
   "scripts": {
     "test": "npm test --workspaces",
     "typecheck": "npm run typecheck --workspaces"
