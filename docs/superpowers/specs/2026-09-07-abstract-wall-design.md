@@ -317,9 +317,9 @@ gate.
 **Where `wall` sits relative to weasel: decided 2026-09-13 — a separate package
 in castleblack**, depending on `@weasel-js/core`, `labkit` and `ui` from npm. It
 owns both executors, and the demo host's leak check runs here. Folding it into
-weasel was weighed and turned down. What follows from that: brick-icons cannot
-install `wall` until castleblack is reachable from its render nodes — the same
-gap that keeps it off `bakery` — and any renderer feature the 2D overlay covers
+weasel was weighed and turned down. What follows from that: brick-icons installs
+`wall` and `bakery` from castleblack's private GitHub repo, so its render nodes
+need read access to it before step 7 — and any renderer feature the 2D overlay covers
 today lands as a weasel release that `wall` then picks up.
 
 **Name.** `castleblack` for now; `yumyulack` is the alternative, recorded under

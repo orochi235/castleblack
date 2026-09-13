@@ -2,7 +2,7 @@
 
 **2026-09-13.** `bakery` is built and on `main`; `wall` is not. `wall` will be
 its own package here, depending on weasel — decided, and recorded under the
-spec's Open. castleblack has no remote.
+spec's Open. The remote is `orochi235/castleblack`, private.
 
 ## Where things are
 
@@ -55,4 +55,4 @@ so lifting `wall` moves their imports too.
    of what the tables have grown. brick-icons commits to `lab/src/corpus/`
    daily, so re-read `main` before planning.
 2. Steps 6 and 7 — the demo host, then brick-icons switching to both packages.
-   Step 7 needs castleblack reachable from brick-icons' render nodes first.
+   Step 7 needs brick-icons' render nodes able to read the private remote.
