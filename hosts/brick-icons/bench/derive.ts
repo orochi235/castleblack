@@ -37,7 +37,10 @@ columns.forEach(([name, fn], i) => {
   console.log(`${String(i + 1).padStart(2)}/${columns.length}  ${name.padEnd(20)} ${ms.toFixed(1).padStart(7)} ms`);
 });
 
+// Fresh objects: the column loop above has already bound every one of `cells`,
+// and a load always arrives as new objects.
+const fresh = generateCells(13, N);
 const t0 = performance.now();
-derive(c, cells);
+derive(c, fresh);
 const whole = performance.now() - t0;
-console.log(`derive over ${N} items   ${whole.toFixed(1).padStart(7)} ms  (columns alone ${summed.toFixed(1)} ms)`);
+console.log(`derive over ${N} items   ${whole.toFixed(1).padStart(7)} ms  (columns alone, bindings already built: ${summed.toFixed(1)} ms)`);

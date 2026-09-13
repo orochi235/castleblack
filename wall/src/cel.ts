@@ -1,4 +1,4 @@
-import { celEnv, isCelError, isCelList, parse, plan } from '@bufbuild/cel';
+import { celEnv, celMap, isCelError, isCelList, parse, plan } from '@bufbuild/cel';
 import { strings } from '@bufbuild/cel/ext';
 import type { CorpusSpec, Item, Projection } from './schema';
 import { byPrecedence, expandStates, type StateSpec } from './states';
@@ -42,6 +42,19 @@ export interface CompiledSpec<T extends Item> {
 const ENV = celEnv({ funcs: strings });
 const FAILED = Symbol('failed');
 
+// The evaluator rebuilds a plain object into a CEL map on every call, which
+// costs 20 us on an item of 33 fields; a map built once is used as it is.
+const bindings = new WeakMap<object, unknown>();
+
+function bind(item: object): unknown {
+  let bound = bindings.get(item);
+  if (bound === undefined) {
+    bound = celMap(new Map(Object.entries(item)) as Parameters<typeof celMap>[0]);
+    bindings.set(item, bound);
+  }
+  return bound;
+}
+
 function plain(v: unknown): unknown {
   if (typeof v === 'bigint') return Number(v);
   if (isCelList(v)) return Array.from(v as Iterable<unknown>, plain);
@@ -60,7 +73,7 @@ export function compileSpec<T extends Item>(spec: CorpusSpec<T>):
     try {
       const run = plan(ENV, parse(expr));
       return (item) => {
-        const out = run({ item } as unknown as Parameters<typeof run>[0]);
+        const out = run({ item: bind(item) } as unknown as Parameters<typeof run>[0]);
         if (!isCelError(out)) return plain(out);
         // A field the feed does not send is absent, not fatal: the server can
         // be older than the page reading it.
