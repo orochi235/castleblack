@@ -1,0 +1,409 @@
+import {
+  useEffect, useMemo, useRef, useState,
+  type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent,
+} from 'react';
+import {
+  clientToCanvas, viewToTransform, worldToScreen, useDecayLoop, usePinchGesture,
+  viewportDragPanAction, zoomAt,
+  type InvocationCtx, type OngoingHandle, type View,
+} from '@weasel-js/core';
+import { LoupeBubble, resolveLoupe, useLoupe } from '@weasel-js/labkit/loupe';
+import { adjacent, impliedCaret, type Direction } from './caret';
+import type { CompiledSpec } from './cel';
+import type { Facts } from './derive';
+import { cornerBadgeAt, DEFAULT_WASH, drawPaintCommand, type DrawOptions } from './draw2d';
+import { scenePainter, type SceneWallPainter } from './drawScene';
+import type { Band, Rect } from './layout';
+import { paintCommands, type Appearance } from './paint';
+import { defaultPalette, readPalette, type Palette } from './palette';
+import { pinchStep } from './pinch';
+import { centerReveal, panToReveal } from './reveal';
+import type { Item } from './schema';
+import type { SheetManifest } from './sheet';
+import type { RampName } from './tint';
+import { visibleRange } from './visible';
+import './Wall.css';
+
+const ARROW_DIRECTION: Record<string, Direction> = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+};
+
+export const DEFAULT_DRAG_THRESHOLD_PX = 4;
+
+export interface WallProps<T extends Item> {
+  compiled: CompiledSpec<T>;
+  facts: Facts<T>;
+  /** Rows of `facts.items` in view order. `rects`, the caret and every
+   *  position below are indexes into this. */
+  order: readonly number[];
+  rects: Rect[];
+  cam: View;
+  sheet: HTMLImageElement | null;
+  manifest: SheetManifest | null;
+  loose: Map<string, CanvasImageSource>;
+  vector: Map<string, CanvasImageSource>;
+  width: number;
+  height: number;
+  highlight: string | null;
+  highlightTag: string | null;
+  /** Paint cell bodies with weasel; the overlays stay on Canvas2D above. */
+  sceneRenderer?: boolean;
+  explicitCaret: number | null;
+  onExplicitCaretChange: (position: number | null) => void;
+  onPan: (next: View) => void;
+  onPick: (row: number, at: { x: number; y: number }) => void;
+  /** A drag has passed the threshold and the wall moves under anything
+   *  anchored to it. */
+  onDragStart?: () => void;
+  onOpen: (row: number) => void;
+  dragThresholdPx?: number;
+  appearance?: Appearance;
+  stale?: boolean;
+  bands?: Band[];
+  /** How much sharper than `devicePixelRatio` to draw, for a pinch the page
+   *  cannot otherwise see. */
+  pixelScale?: number;
+  tint?: string;
+  gradient?: RampName;
+  /** Badges that link to another item when clicked, and where each goes. */
+  linkedBadges?: readonly string[];
+  linkTarget?: (row: number, tag: string) => number | null;
+  /** The root of the CSS custom properties the palette is read from. */
+  cssRoot?: string;
+  drawMark?: DrawOptions['drawMark'];
+  washColor?: string;
+  ground?: string;
+  /** What a screen reader hears when the caret lands on a row. */
+  describe?: (row: number) => string;
+}
+
+function ongoingInvoker(action: typeof viewportDragPanAction) {
+  if (!action.invoker || action.invoker.timing !== 'ongoing') {
+    throw new Error('viewport.dragPan: expected an ongoing invoker');
+  }
+  return action.invoker;
+}
+
+const NOOP_MODIFIERS = { alt: false, ctrl: false, meta: false, shift: false };
+
+/** The wall's rendering surface: a canvas the host positions and sizes. */
+export function Wall<T extends Item>({
+  compiled, facts, order, rects, cam, sheet, manifest, loose, vector, width, height,
+  highlight, highlightTag, explicitCaret, onExplicitCaretChange,
+  onPan, onPick, onOpen, onDragStart,
+  dragThresholdPx = DEFAULT_DRAG_THRESHOLD_PX,
+  pixelScale = 1, appearance, bands, tint, gradient, stale = false,
+  sceneRenderer = false, linkedBadges, linkTarget, cssRoot = '--wall',
+  drawMark, washColor = DEFAULT_WASH, ground, describe,
+}: WallProps<T>) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
+  const painterRef = useRef<{ painter: SceneWallPainter; gl: HTMLCanvasElement } | null>(null);
+  const [sheetBitmap, setSheetBitmap] = useState<ImageBitmap | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const decay = useDecayLoop();
+  const [palette, setPalette] = useState<Palette>(() => defaultPalette(compiled.states));
+
+  // The drag spans several pointer events and must see the live camera, not
+  // the one closed over when it started.
+  const camRef = useRef(cam);
+  camRef.current = cam;
+  const handleRef = useRef<OngoingHandle | null>(null);
+  const draggedRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const startRef = useRef({ x: 0, y: 0 });
+  const downRef = useRef(new Set<number>());
+  const dragPointerRef = useRef<number | null>(null);
+  const pinchAtRef = useRef<{ x: number; y: number } | null>(null);
+
+  const view = { get: () => camRef.current, set: onPan, decay: decay.start };
+
+  const options: DrawOptions = useMemo(
+    () => ({ marks: compiled.spec.marks ?? {}, drawMark, washColor }),
+    [compiled, drawMark, washColor]);
+
+  // Canvas fills cannot see CSS except through getComputedStyle: read on mount,
+  // on a theme change above the canvas, and when a params row writes a custom
+  // property onto `.lk-root` (watched alone, since the canvas restyles itself
+  // every frame).
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const update = () => {
+      const styles = getComputedStyle(canvas);
+      setPalette(readPalette((prop) => styles.getPropertyValue(prop), compiled.states, cssRoot));
+    };
+    update();
+    const themeObserver = new MutationObserver(update);
+    themeObserver.observe(document.documentElement, {
+      attributes: true, attributeFilter: ['data-wzl-mode', 'data-wzl-theme'], subtree: true,
+    });
+    const root = canvas.closest('.lk-root');
+    const rootObserver = root ? new MutationObserver(update) : null;
+    rootObserver?.observe(root!, { attributes: true, attributeFilter: ['style'] });
+    return () => { themeObserver.disconnect(); rootObserver?.disconnect(); };
+  }, [compiled, cssRoot]);
+
+  const loupeCapability = useMemo(() => resolveLoupe(true), []);
+  const loupe = useLoupe({ capability: loupeCapability, hostRef: ref, enabled: false });
+  const lensRef = useRef<HTMLCanvasElement>(null);
+
+  const visible = useMemo(
+    () => visibleRange(rects, cam, { width, height }), [rects, cam, width, height]);
+  const implied = useMemo(
+    () => impliedCaret(rects, visible, cam, { width, height }),
+    [rects, visible, cam, width, height]);
+  const positionOf = useMemo(() => new Map(order.map((row, i) => [row, i])), [order]);
+  const linked = useMemo(() => new Set(linkedBadges ?? []), [linkedBadges]);
+
+  const followLink = (position: number, tag: string): boolean => {
+    const target = linkTarget?.(order[position]!, tag);
+    if (target == null) return false;
+    const next = positionOf.get(target);
+    if (next == null) return false;
+    onExplicitCaretChange(next);
+    const rect = rects[next];
+    // Centered: the target is elsewhere in the wall entirely, and landing it
+    // against an edge leaves the reader hunting for it.
+    if (rect) onPan(centerReveal(rect, camRef.current, { width, height }));
+    return true;
+  };
+
+  const caretPosition = explicitCaret ?? implied;
+  // Drawn only where somebody put it: the implied caret slides around under
+  // the pointer whenever nobody is navigating by keyboard.
+  const caretDrawn = explicitCaret;
+
+  const commandsFor = (at: View, overlayOnly = false) => paintCommands({
+    compiled, facts, order, rects, visible, cam: at, manifest, palette, loose, vector,
+    highlight, highlightTag, caret: overlayOnly ? null : caretDrawn,
+    appearance, bands, tint, gradient, stale, ground,
+  });
+
+  // Weasel takes a texture, not an <img>. Never closed: a paint may still hold
+  // the previous one when a slot swap replaces it.
+  useEffect(() => {
+    if (!sceneRenderer || !sheet) { setSheetBitmap(null); return; }
+    let live = true;
+    void createImageBitmap(sheet)
+      .then((b) => { if (live) setSheetBitmap(b); })
+      .catch(() => { if (live) setSheetBitmap(null); });
+    return () => { live = false; };
+  }, [sceneRenderer, sheet]);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    // Times the pinch: Chrome's pinch zoom magnifies the composited layer
+    // without moving devicePixelRatio.
+    const dpr = (window.devicePixelRatio || 1) * pixelScale;
+    const cmds = commandsFor(cam);
+
+    const gl = glRef.current;
+    if (sceneRenderer && gl) {
+      if (painterRef.current?.gl !== gl) {
+        painterRef.current = { painter: scenePainter(gl, canvas), gl };
+      }
+      painterRef.current.painter.paint(cmds, { width, height, dpr },
+                                       { bitmap: sheetBitmap, img: sheet }, palette, options,
+                                       'linear');
+      return;
+    }
+
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    // The backing store is oversized for sharpness; the CSS size pins it back.
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.imageSmoothingEnabled = true;
+    for (const cmd of cmds) drawPaintCommand(ctx, cmd, sheet, palette, options);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compiled, facts, order, rects, visible, cam, sheet, manifest, palette, loose, vector,
+      highlight, highlightTag, caretDrawn, appearance, bands, tint, gradient, stale, ground,
+      width, height, pixelScale, sceneRenderer, sheetBitmap, options]);
+
+  // The lens magnifies what is already on screen, so it redraws the same
+  // visible set recentred rather than recomputing visibility.
+  useEffect(() => {
+    const canvas = lensRef.current;
+    if (!canvas || !loupe.visible) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const d = loupeCapability.diameter;
+    canvas.width = d * dpr;
+    canvas.height = d * dpr;
+    canvas.style.width = `${d}px`;
+    canvas.style.height = `${d}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, d, d);
+    ctx.imageSmoothingEnabled = true;
+    const offset = { x: d / 2 - loupe.aim.x, y: d / 2 - loupe.aim.y };
+    for (const cmd of commandsFor(zoomAt(cam, loupe.aim, loupe.factor))) {
+      drawPaintCommand(ctx, cmd, sheet, palette, { ...options, offset });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loupe.visible, loupe.aim, loupe.factor, loupeCapability.diameter, compiled, facts, order,
+      rects, visible, cam, sheet, manifest, palette, loose, vector, highlight, caretDrawn,
+      appearance, bands, tint, gradient, stale, width, height, options]);
+
+  const hitTest = (e: { clientX: number; clientY: number; currentTarget: HTMLCanvasElement }) => {
+    const [sx, sy] = clientToCanvas(e.currentTarget, e.clientX, e.clientY);
+    // `appearance` and not the default: a click must not find a badge the
+    // wall never drew.
+    const cmds = commandsFor(cam, true);
+    for (let i = cmds.length - 1; i >= 0; i--) {
+      const c = cmds[i]!;
+      if (c.kind === 'label') continue;
+      if (sx >= c.dx && sx <= c.dx + c.dw && sy >= c.dy && sy <= c.dy + c.dh) {
+        const position = visible[i];
+        if (position === undefined || order[position] === undefined) return null;
+        const badge = (('badges' in c ? c.badges : undefined) ?? []).find((b) => {
+          if (!linked.has(b.tag)) return false;
+          const { cx, cy, radius } = cornerBadgeAt(b, c);
+          return Math.hypot(sx - cx, sy - cy) <= radius;
+        });
+        return { position, row: order[position]!, at: { x: sx, y: sy }, badge };
+      }
+    }
+    return null;
+  };
+
+  const dragCtx = (screenDelta: { x: number; y: number }): InvocationCtx => ({
+    world: { x: 0, y: 0 }, screen: { x: 0, y: 0 }, modifiers: NOOP_MODIFIERS,
+    deps: { view },
+    drag: { start: { x: 0, y: 0 }, current: screenDelta, delta: screenDelta, screenDelta },
+  });
+
+  const endDrag = (delta: { x: number; y: number }, reason: 'commit' | 'cancel') => {
+    dragPointerRef.current = null;
+    if (!handleRef.current) return;
+    handleRef.current.onEnd?.(dragCtx(delta), reason);
+    handleRef.current = null;
+    setDragging(false);
+    if (reason === 'commit' && draggedRef.current) suppressClickRef.current = true;
+  };
+
+  const dragDelta = (e: ReactPointerEvent<HTMLCanvasElement>) =>
+    ({ x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y });
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    downRef.current.add(e.pointerId);
+    // A second finger makes it a pinch, which must not fight a pan underneath.
+    if (downRef.current.size > 1) { endDrag({ x: 0, y: 0 }, 'cancel'); return; }
+    if (e.button !== 0) return;
+    suppressClickRef.current = false;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* uncaptured is fine */ }
+    startRef.current = { x: e.clientX, y: e.clientY };
+    draggedRef.current = false;
+    dragPointerRef.current = e.pointerId;
+    handleRef.current = ongoingInvoker(viewportDragPanAction)
+      .start(dragCtx({ x: 0, y: 0 }), { params: { inertia: {} } });
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!handleRef.current || e.pointerId !== dragPointerRef.current) return;
+    const { x: dx, y: dy } = dragDelta(e);
+    if (!draggedRef.current) {
+      if (Math.hypot(dx, dy) < dragThresholdPx) return;
+      draggedRef.current = true;
+      setDragging(true);
+      onDragStart?.();
+    }
+    handleRef.current.onMove?.(dragCtx({ x: dx, y: dy }));
+  };
+
+  const onPointerRelease = (e: ReactPointerEvent<HTMLCanvasElement>,
+                            reason: 'commit' | 'cancel') => {
+    downRef.current.delete(e.pointerId);
+    if (downRef.current.size < 2) pinchAtRef.current = null;
+    if (e.pointerId === dragPointerRef.current) endDrag(dragDelta(e), reason);
+  };
+
+  usePinchGesture(ref, (clientAnchor, factor) => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const [x, y] = clientToCanvas(canvas, clientAnchor.x, clientAnchor.y);
+    if (!pinchAtRef.current) onDragStart?.();
+    onPan(pinchStep(camRef.current, { x, y }, pinchAtRef.current, factor));
+    pinchAtRef.current = { x, y };
+    suppressClickRef.current = true;
+  });
+
+  // Role, name and keyboard operability without a focusable node per cell:
+  // arrows move the caret, Enter picks, Escape drops back to the implied one.
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLCanvasElement>) => {
+    const direction = ARROW_DIRECTION[e.key];
+    if (direction) {
+      e.preventDefault();
+      if (caretPosition == null) return;
+      const next = adjacent(rects, caretPosition, direction);
+      if (next == null) return;
+      onExplicitCaretChange(next);
+      const rect = rects[next];
+      if (rect) onPan(panToReveal(rect, camRef.current, { width, height }));
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (caretPosition == null) return;
+      const rect = rects[caretPosition];
+      const row = order[caretPosition];
+      if (!rect || row === undefined) return;
+      const [sx, sy] = worldToScreen(rect.x + rect.w / 2, rect.y + rect.h / 2,
+                                     viewToTransform(camRef.current));
+      onPick(row, { x: sx, y: sy });
+      return;
+    }
+    if (e.key === 'Escape') onExplicitCaretChange(null);
+  };
+
+  const announced = caretDrawn != null && order[caretDrawn] !== undefined
+    ? (describe ?? ((row: number) => facts.items[row]?.id ?? ''))(order[caretDrawn]!)
+    : '';
+
+  return (
+    <>
+      <div className="wall-canvas-stack">
+        {sceneRenderer && <canvas ref={glRef} className="wall-canvas-gl" />}
+        <canvas
+          ref={ref}
+          className={[
+            'wall-canvas',
+            dragging ? 'wall-canvas-dragging' : '',
+            sceneRenderer ? 'wall-canvas-over' : '',
+          ].filter(Boolean).join(' ')}
+          width={width}
+          height={height}
+          tabIndex={0}
+          onKeyDown={onKeyDown}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={(e) => onPointerRelease(e, 'commit')}
+          onPointerCancel={(e) => onPointerRelease(e, 'cancel')}
+          onClick={(e) => {
+            if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+            // The first click of a double click; onDoubleClick takes it.
+            if (e.detail === 2) return;
+            const hit = hitTest(e);
+            if (!hit) return;
+            if (hit.badge && followLink(hit.position, hit.badge.tag)) return;
+            onPick(hit.row, hit.at);
+          }}
+          onDoubleClick={(e) => {
+            const hit = hitTest(e);
+            if (hit) onOpen(hit.row);
+          }}
+        />
+      </div>
+      {loupe.visible && (
+        <LoupeBubble aim={loupe.aim} diameter={loupeCapability.diameter}>
+          <canvas ref={lensRef} className="lk-loupe__canvas" />
+        </LoupeBubble>
+      )}
+      <div className="wall-caret-announce" aria-live="polite">{announced}</div>
+    </>
+  );
+}

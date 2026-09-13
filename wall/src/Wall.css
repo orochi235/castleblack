@@ -1,0 +1,22 @@
+/* Without `touch-action: none` the browser claims a one-finger drag for
+ * scrolling and a two-finger one for page zoom. */
+.wall-canvas { display: block; cursor: grab; touch-action: none; }
+.wall-canvas-dragging { cursor: grabbing; }
+
+/* The GL canvas carries cell bodies and the 2D canvas sits over it with the
+ * overlays and the pointer handlers. `isolation` keeps the lifted layer from
+ * rising over panels later in the stage. */
+.wall-canvas-stack { position: relative; isolation: isolate; }
+.wall-canvas-gl { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; }
+.wall-canvas-over { position: relative; z-index: 1; }
+
+/* Off-screen rather than display:none, which would drop it from the
+ * accessibility tree it exists for. */
+.wall-caret-announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
