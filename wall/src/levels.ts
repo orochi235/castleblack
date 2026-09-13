@@ -5,6 +5,12 @@ export const DEFAULT_HYSTERESIS = { up: 1.5, down: 0.67 };
  *  draws a vector instead of upscaling that raster. */
 export const VECTOR_LEVEL = 512;
 
+/** The raster rungs drawn from one sprite sheet each. */
+export const SHEET_LEVELS = [8, 32] as const;
+
+/** The raster rung drawn from one file per item. */
+export const LOOSE_LEVEL = 128;
+
 /** The on-screen cell size each BAKED level is meant to cover. Past the last
  *  raster rung a cell wants the vector instead of a bigger bake, so the
  *  vector is the fall-through rather than a band of its own -- which is what
