@@ -295,8 +295,9 @@ gate.
    slots, baked by `bakery`, served by FastAPI, drawn by `WallView`. The leak
    check is `wall/test/leak.test.ts`.
 7. **brick-icons switches** to consuming both by path, deletes its copy.
-8. **The wall at a million items**, proved on every Unicode code point.
-   Designed, not built: `2026-09-13-wall-at-a-million-design.md`.
+8. ~~**The wall at a million items**~~ **Built**, proved on every Unicode code
+   point in `hosts/unicode/`, which replaced `hosts/demo/`:
+   `2026-09-13-wall-at-a-million-design.md`.
 
 ## Open
 

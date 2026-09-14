@@ -17,7 +17,7 @@ export function chunks(text: string): Chunks {
 
 /** A string that orders under plain `<` exactly as `naturalCompare` orders
  *  `text`: each digit run becomes a marker below every printable character
- *  and the number zero-padded, so one string compare stands in for a run of
+ *  followed by its digit count, so one string compare stands in for a run of
  *  chunk compares. Text holding U+0000 is not ordered faithfully. */
 export function naturalKey(text: string): string {
   let i = 0;
@@ -28,7 +28,10 @@ export function naturalKey(text: string): string {
     const start = i;
     if (isDigit(text.charCodeAt(i))) {
       while (i < text.length && isDigit(text.charCodeAt(i))) i++;
-      out += `\u0000${String(Number(text.slice(start, i))).padStart(16, '0')}`;
+      // Leading zeros dropped and the length first, so longer numbers sort later.
+      let from = start;
+      while (from < i - 1 && text.charCodeAt(from) === 48) from++;
+      out += `\u0000${String.fromCharCode(64 + i - from)}${text.slice(from, i)}`;
     } else {
       while (i < text.length && !isDigit(text.charCodeAt(i))) i++;
       out += text.slice(start, i);

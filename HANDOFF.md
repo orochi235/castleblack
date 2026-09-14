@@ -1,49 +1,48 @@
 # pezlie — pickup state
 
-**2026-09-13.** `bakery` and `wall` are built and on `main`, pushed to
-`orochi235/pezlie` (public), with a demo host drawing a generated corpus in
-a browser. What is left is step 7: brick-icons switching to both packages.
+**2026-09-13.** `bakery` and `wall` are built and on `main`. The wall now holds
+items as columns and draws all 1,114,112 Unicode code points
+(`hosts/unicode/`, which replaced the generated demo host). What is left of the
+original plan is step 7: brick-icons switching to both packages.
 
-**A parallel `/wall` page is on brick-icons `main`** (`f5bb708`, `fbbc19e`, not
-pushed). It draws the corpus through `WallView` beside `CorpusWall`, which is
-untouched. On `occt` its
-legend counts match `/corpus` exactly, the card and lightbox work, and either
-wall's hash opens the other.
+**A parallel `/wall` page is on brick-icons `main`.** It draws the corpus
+through `WallView` beside `CorpusWall`, pinned to a pezlie sha from before the
+column rewrite.
 
 ## Where things are
 
 - `docs/superpowers/specs/2026-09-07-abstract-wall-design.md` — the design and
-  what is built of it, checked against brick-icons `fa91c59`. Read this first.
-- `docs/superpowers/plans/` — Phases 1, 2, 3 (the wall core) and 3b (the view
-  and the demo), each ending with "What it found".
+  what is built of it. Read this first.
+- `docs/superpowers/specs/2026-09-13-wall-at-a-million-design.md` — how the
+  wall reaches a million items, with the measured gates.
+- `docs/superpowers/plans/` — every phase, each ending with "What it found".
 - `wall/` — the TypeScript package. `wall/README.md` is the host contract.
 - `hosts/brick-icons/` — brick-icons' spec, and the tests proving it draws what
   brick-icons drew: goldens, a differential test against the legacy code, and
   `bench/derive.ts`.
-- `hosts/demo/` — a generated corpus: `make.py` bakes it, `server.py` serves it,
-  `npm run dev` draws it. `hosts/demo/README.md` has the three commands.
-- `bakery/` — the Python package; its README has setup.
+- `hosts/unicode/` — every code point and the assigned characters as Arrow
+  feeds from UCD 17.0.0, a FastAPI server, the page, and `bench/` (the Arrow
+  trial, per-stage `scale.ts`, and `browser.mjs`, the gates).
+  `hosts/unicode/README.md` has the commands.
+- `bakery/` — the Python package, now with `pezlie.feed` for Arrow feeds; its
+  README has setup.
 - `scripts/brick-icons-bake-parity.py`, `spike/cel/`.
 
-The root is an npm workspace (`wall`, `hosts/brick-icons`, `hosts/demo`):
-`npm install` once at the root. `bakery/.venv` and `hosts/demo/.venv` are
+The root is an npm workspace (`wall`, `hosts/brick-icons`, `hosts/unicode`):
+`npm install` once at the root. `bakery/.venv` and `hosts/unicode/.venv` are
 gitignored and recreated from each README.
 
-**`wall` is published to npm as `pezlie`**, built to `wall/dist/` by
-`npm run build`; `prepublishOnly` typechecks, tests and builds. The root
-package is `pezlie-workspace`. The hosts still import the wall's source as
-`@pezlie/wall/src/*`, through a tsconfig path and a vite alias, the specifier
-brick-icons' lab aliases too.
+**`wall` is published to npm as `pezlie` 0.1.0, which predates the column
+rewrite.** The hosts import the wall's source as `@pezlie/wall/src/*`, through a
+tsconfig path and a vite alias, the specifier brick-icons' lab aliases too.
 
-**`bakery` is published on PyPI as `pezlie` and imports as `pezlie`.** The demo
-host's `pyproject.toml` names it `pezlie`.
+**`bakery` is published on PyPI as `pezlie` and imports as `pezlie`.**
 
 ## What is decided that the code does not say
 
 **The name is `pezlie`**, after the first person born tiny in *Solar
-Opposites*' wall. It is ours on npm and PyPI; the working name, `castleblack`, is a
-parked npm package someone else owns. The GitHub repo and this directory were
-renamed from it, and GitHub redirects the old URL.
+Opposites*' wall. The working name, `castleblack`, is a parked npm package
+someone else owns.
 
 **Display projections may be hooks; predicates may not.** States, filters,
 classes, sorts, tags and the wash flag are CEL so a Python feed can evaluate
@@ -52,7 +51,17 @@ them. Captions, facets, glyph, mark and tints are TypeScript.
 **`WallView` keeps no address bar.** A host keeps its own hash through
 `initial` and `onChange`; brick-icons' `wallHash` stays in brick-icons.
 
+**Rules evaluated by the server stay a maybe.** Approach C in the million-item
+spec: the feed would ship derived columns. Not started.
+
 ## Traps
+
+**Moving brick-icons' pin past the column rewrite breaks its `/wall` page.**
+`Layout` is now `({ rows, facts }, opts) => Laid`; `blockLayout` and
+`bandedLayout` take a `GroupKey` (`reads`, `of`, optional `label`) where
+brick-icons' `lab/src/wall/host.ts` passes plain functions; tints and facet
+hooks need `reads` (`hosts/brick-icons/src/spec.ts` already has them); and a
+tie in a sort now keeps index order, not natural id order.
 
 **The host tests read brick-icons' source at `$BRICK_ICONS`**, defaulting to
 the checkout beside pezlie — which other sessions edit. For a clean read,
@@ -71,11 +80,9 @@ Python's bytecode cache keys on mtime and size. Patch in memory.
 **A top-left badge sits on a top-left caption.** Only top-right captions make
 room; brick-icons has the same overlap.
 
-**brick-icons pins pezlie by sha.** `lab/package.json` installs this repo
-from GitHub, so a pezlie change reaches `/wall` only when that sha moves;
-`PEZLIE=~/src/pezlie npm run dev` reads the checkout instead. The
-repo is public, so any clone's `npm ci` fetches it over HTTPS despite the
-`git+ssh` URL npm writes in the lockfile. The render nodes never run npm.
+**Bench numbers on this machine swing by a third.** Other sessions keep the
+load average at 20–30; the recorded gates were taken under that load. Compare
+runs taken minutes apart, not across days.
 
 **The spec's CEL tables trail brick-icons.** A key brick-icons adds to its
 states, filters, classes or sorts makes `hosts/brick-icons/src/spec.ts` throw on
@@ -86,13 +93,12 @@ the work profile, not a failure.
 
 ## Next
 
-0. **The wall at a million items** — designed, not built, no plan yet:
-   `docs/superpowers/specs/2026-09-13-wall-at-a-million-design.md`. Arrow is
-   on trial; its first step is the decode measurement.
-1. **Close the gaps between `/wall` and `/corpus`**, each needing a `WallView`
-   surface first: part search (`PartSearch` has to reveal and open an item),
-   the Engine/Legacy/Reference/Decal slot groups (`FilterBar`), and the camera
-   and caret in the hash.
-2. **Plan the rest of step 7**: `thumbs.py` gives way to `bakery` (not
-   started), the brick-icons spec moves into the lab, `/wall` replaces
-   `/corpus`.
+1. **The name sort gate** (260 ms against 250): work sort orders out before
+   they are asked for, off the main thread, or have the feed send them.
+2. **Paged sheets**, then font renders, then emoji and Material Symbols — the
+   roadmap at the end of the million-item spec. An emoji wall small enough to
+   embed in the portfolio was asked about and not decided.
+3. **Close the gaps between `/wall` and `/corpus`** in brick-icons (part search,
+   the slot groups, the camera and caret in the hash), and adapt `/wall` to the
+   column rewrite when its pin moves.
+4. **Publish the wall** once brick-icons is on the new API.

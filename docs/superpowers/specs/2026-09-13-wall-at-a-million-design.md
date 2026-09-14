@@ -1,8 +1,9 @@
 # The wall at a million items
 
-**Status: designed 2026-09-13, not built.** Nothing below exists in the code
-yet. The wall today holds each item as a JS object and runs CEL per item, which
-tops out well short of a million.
+**Status: built 2026-09-13.** Every gate passes except one: re-sorting a
+million rows by name takes 260 ms against a 250 ms bar. Numbers are under
+Measured; where the build departs from the design below, the design has been
+corrected to what was built.
 
 This is the design for making `wall` fast at 1,114,112 items, with every
 Unicode code point as the corpus that proves it. It is for whoever implements
@@ -54,7 +55,7 @@ buffers; it never builds an object per item.
   store from `T[]`, so a host with tens of thousands of items can go on sending
   JSON. brick-icons' parity tests use this path.
 - **Poll deltas** arrive as a table of changed rows and are applied by `index`.
-  A delta drops the cached sort orders and tiles that read a column it changed.
+  A delta drops every cached sort order, tint and caption, and the tiles.
 
 **Arrow passed its trial.** Decoding the 1,114,112-row Unicode table (70 MB,
 8.0 MB gzipped) and reading every column buffer and dictionary once takes
@@ -73,7 +74,9 @@ ungroupable.
 expression once per distinct group, writing the result to every row in it. For
 Unicode the states read only `kind`, so they cost five evaluations. An
 ungroupable expression, or one whose fields have nearly as many distinct values
-as rows (brick-icons' `item.secs > 60`), runs per row, in a worker.
+as rows (brick-icons' `item.secs > 60`), runs once per row on the main thread;
+nothing measured has needed a worker. A value that is nothing but a field read
+(`item.cp`) runs no CEL at all and takes the column as it stands.
 
 TypeScript hooks (tints, facets, grouping keys) declare `reads: string[]` and
 are grouped the same way; a hook is called with an object holding only those
@@ -86,10 +89,12 @@ filter and class as a bit array, each facet as codes into its value list.
 ### Selection without re-sorting
 
 Each sort key's order is computed the first time that sort is used and cached
-as a `Uint32Array` of rows. A dictionary-encoded key sorts its dictionary once
-and orders rows by code rank; a numeric key sorts `(value, index)`. Ties break
-by `index`, where today they break by natural id order; hosts compose `index`
-in id order, and brick-icons' parity tests confirm the two agree.
+as a `Uint32Array` of rows. The key's distinct values are ranked -- numbers
+through a typed-array sort, or not at all when the column already rises;
+strings by one flat natural key each, compared as plain strings -- and rows are
+counting-sorted by rank. Ties break by `index`, where they broke by natural id
+order; brick-icons' test cells are now numbered in id order, which is how a
+feed composes them, and its parity tests pass.
 
 A filter, class, facet or tag change is then one linear pass over the cached
 order, writing the rows it keeps into a reused `Uint32Array`.
@@ -116,9 +121,10 @@ draws from world-space tiles instead of cells:
 - A missing tile is drawn from the next coarser level scaled up while it
   renders. Rendering takes a fixed time budget per frame, nearest the center
   first.
-- At the coarsest levels a tile is the one-pixel-per-cell image: each cell's
-  state or tint color written straight into `ImageData`. Levels between that and
-  sprites are composed from the 8 px and 32 px sheets.
+- Where a cell is under 4 tile pixels, a tile is written straight into
+  `ImageData`: each cell a run of its state's border color, else its fill, or
+  its tint swatch. Above that a tile is `paint`'s commands for its cells, drawn
+  from the sheets, with badges and captions left off.
 - A cache of tiles is evicted least recently used, with its size in the params
   panel.
 - The caret and band labels draw over the tiles each frame, as they do now.
@@ -164,6 +170,32 @@ brick-icons pins pezlie by sha, so it sees none of this until it moves the pin.
 Before this merges, `hosts/brick-icons`' goldens and differential tests pass on
 the new path through `columnsFromItems`, with its hooks given `reads`. Moving
 its feed to Arrow is its own later change.
+
+## Measured
+
+A production build in headless Chromium (`playwright-core` 1.63.0), 1600 by
+1000 at a device pixel ratio of 1, on an Apple M2 Max whose load average from
+other work sat between 20 and 30. `hosts/unicode/bench/browser.mjs` reproduces
+it.
+
+| gate | measured |
+|---|---:|
+| first paint, every code point | 731–756 ms |
+| median frame, pan and zoom with the whole wall on screen | 16.7 ms |
+| 95th percentile frame | 16.8 ms |
+| show assigned, show unassigned, show all | 82–135 ms |
+| order by code point, by age | 99–125 ms |
+| color by age, by status | 100–175 ms |
+| **order by name** | **260–268 ms** |
+
+Of first paint, the 8.1 MB gzipped feed has arrived by about 280 ms; decode,
+derive, the default sort, layout and the first tiles take the other 470. The
+Vite dev server adds about half a second to first paint.
+
+The name sort is the one miss. Its cost is one natural key per distinct name
+(159,802) and a comparator sort over them, about 150 ms of the 260. The next
+step is working sort orders out before anyone asks -- off the main thread, or
+sent by the feed as part of rules evaluated by the server.
 
 ## Not in this spec
 

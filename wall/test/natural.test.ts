@@ -36,7 +36,8 @@ describe('naturalCompare', () => {
 });
 
 it('builds a key that plain comparison orders the way naturalCompare does', () => {
-  const ids = ['4100b', '10250', '4100', '4101', 'a2', 'a10', 'a', 'ab', 'a-1', 'x9', 'x09', 'CJK-4E00', 'CJK-4E0A', ''];
+  const ids = ['4100b', '10250', '4100', '4101', 'a2', 'a10', 'a', 'ab', 'a-1', 'x9', 'x09', 'CJK-4E00', 'CJK-4E0A', '',
+               '0', '00', '000123', '99999999999', 'v1.10', 'v1.9', 'x0y'];
   const byKey = [...ids].sort((a, b) => (naturalKey(a) < naturalKey(b) ? -1 : naturalKey(a) > naturalKey(b) ? 1 : 0));
   const byCompare = [...ids].sort(naturalCompare);
   expect(byKey.map((id) => naturalKey(id))).toEqual(byCompare.map((id) => naturalKey(id)));

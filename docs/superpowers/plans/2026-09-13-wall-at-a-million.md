@@ -1,5 +1,8 @@
 # The wall at a million items — implementation plan
 
+**Status: carried out 2026-09-13.** What departed from the plan is under What it
+found, at the end.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `WallView` draws all 1,114,112 Unicode code points within the gates in
@@ -190,3 +193,22 @@ Stages at 25k, 250k and 1,114,112 rows, one line each as it finishes.
 `browser.mjs` measures first paint, frame time over a scripted pan and zoom,
 and filter/sort latency; exits nonzero on a miss. Fix what misses. Record the
 numbers in the spec and mark what is built.
+
+## What it found
+
+- **Arrow was the right call.** Decode is under 1 ms; reading every column
+  once is 68 ms in Chromium.
+- **Grouped evaluation is not enough for a nearly unique field.** Sorting by
+  code point was 1.1 million CEL calls and a comparator sort, 2.3 s, and it is
+  the default sort, so it blocked first paint. A bare field read now takes the
+  column, and a rising numeric column needs no sort at all.
+- **The costly reads are per-row decoding.** A map over a million numbers, a
+  string read per row, and re-splitting names on every comparison each showed
+  up as hundreds of milliseconds; each has a fast path in `store.ts` or
+  `select.ts`.
+- **The dev server is not the page.** First paint was 1.28 s under Vite's dev
+  server and 0.73 s from a production build, with the same code.
+- **The scale bench moved into the Unicode host**, beside the spec it
+  measures, since the wall's own `tsconfig` cannot resolve a host.
+- **Not done: a worker.** Nothing measured needed one; the name sort (260 ms)
+  is where one would go.
