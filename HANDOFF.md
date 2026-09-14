@@ -86,6 +86,9 @@ the work profile, not a failure.
 
 ## Next
 
+0. **The wall at a million items** — designed, not built, no plan yet:
+   `docs/superpowers/specs/2026-09-13-wall-at-a-million-design.md`. Arrow is
+   on trial; its first step is the decode measurement.
 1. **Close the gaps between `/wall` and `/corpus`**, each needing a `WallView`
    surface first: part search (`PartSearch` has to reveal and open an item),
    the Engine/Legacy/Reference/Decal slot groups (`FilterBar`), and the camera
