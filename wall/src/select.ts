@@ -90,28 +90,24 @@ function rankNumbers(values: readonly (number | null)[], desc: boolean): { rank:
   return { rank, ranks: distinct };
 }
 
-/** Strings rank by the engine's own string sort over natural keys, each
- *  tagged with its code: several times faster than a comparator over a
- *  hundred thousand names. */
+/** Strings rank by one flat natural key each, compared as plain strings. */
 function rankStrings(values: readonly (string | null)[], desc: boolean): { rank: Int32Array; ranks: number } {
-  // Below every digit, so a tag never reorders two keys that differ.
-  const SEP = '\u0000\u0000';
-  const tagged: string[] = [];
-  values.forEach((v, code) => { if (!none(v)) tagged.push(`${naturalKey(v!)}${SEP}${code}`); });
-  tagged.sort();
-  if (desc) tagged.reverse();
+  const keys = values.map((v) => (none(v) ? null : naturalKey(v!)));
+  const present = Array.from(values.keys()).filter((code) => keys[code] !== null);
+  const dir = desc ? -1 : 1;
+  present.sort((a, b) => {
+    const x = keys[a]!;
+    const y = keys[b]!;
+    return (x < y ? -1 : x > y ? 1 : 0) * dir;
+  });
   const rank = new Int32Array(values.length);
   let ranks = 0;
-  let previous: string | null = null;
-  for (const entry of tagged) {
-    const cut = entry.lastIndexOf(SEP);
-    const key = entry.slice(0, cut);
-    if (previous !== null && key !== previous) ranks++;
-    previous = key;
-    rank[Number(entry.slice(cut + SEP.length))] = ranks;
-  }
-  const last = tagged.length ? ranks + 1 : 0;
-  values.forEach((v, code) => { if (none(v)) rank[code] = last; });
+  present.forEach((code, i) => {
+    if (i > 0 && keys[code] !== keys[present[i - 1]!]) ranks++;
+    rank[code] = ranks;
+  });
+  const last = present.length ? ranks + 1 : 0;
+  values.forEach((_, code) => { if (keys[code] === null) rank[code] = last; });
   return { rank, ranks: last + 1 };
 }
 

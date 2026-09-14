@@ -1,6 +1,6 @@
 // The wall at a million items, measured in headless Chromium against its gates.
 //
-//   node hosts/unicode/bench/browser.mjs [--dpr 2] [--dev]
+//   node hosts/unicode/bench/browser.mjs [--dpr 2] [--dev] [--shot wall.png]
 //
 // Starts the feed server and serves a production build of the page (or the
 // Vite dev server, with --dev), loads the page once to warm both, then times on
@@ -17,6 +17,8 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const dprArg = process.argv.indexOf('--dpr');
 const DPR = dprArg > 0 ? Number(process.argv[dprArg + 1]) : 1;
 const DEV = process.argv.includes('--dev');
+const shotArg = process.argv.indexOf('--shot');
+const SHOT = shotArg > 0 ? process.argv[shotArg + 1] : null;
 const API_PORT = 8797;
 const VIEWPORT = { width: 1600, height: 1000 };
 const MARK = 'pezlie:complete';
@@ -93,6 +95,7 @@ try {
     return { scripts: nav.domContentLoadedEventEnd, asked: feed?.startTime ?? NaN, got: feed?.responseEnd ?? NaN,
              wire: feed?.encodedBodySize ?? NaN, body: feed?.decodedBodySize ?? NaN };
   });
+  if (SHOT) await page.screenshot({ path: SHOT });
   const mb = (bytes) => (bytes / 1e6).toFixed(1);
   console.log(`        scripts loaded ${t.scripts.toFixed(0)} ms, feed asked ${t.asked.toFixed(0)} ms, `
     + `received ${t.got.toFixed(0)} ms (${mb(t.wire)} MB sent, ${mb(t.body)} MB unpacked), `
