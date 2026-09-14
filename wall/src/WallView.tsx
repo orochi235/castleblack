@@ -17,7 +17,7 @@ import { gridLayout, visibleCount, visiblePositions, type Layout } from './layou
 import { Legend } from './Legend';
 import { levelFor, LOOSE_LEVEL, pickLevel, SHEET_LEVELS } from './levels';
 import { paramSchema } from './params';
-import type { Appearance } from './paint';
+import { BADGE_MIN_PX, type Appearance } from './paint';
 import type { CorpusSpec, Item } from './schema';
 import { applySelection } from './select';
 import { staleCountOf } from './sheet';
@@ -471,7 +471,8 @@ function WallViewBody<T extends Item>({
                     return id === null ? null : rowOfId(facts, id) ?? null;
                   })}
                   cssRoot={cssRoot} drawMark={drawMark} washColor={washColor} ground={ground}
-                  describe={describe && ((row) => describe(facts.store.get(row)))} />
+                  describe={describe && ((row) => describe(facts.store.get(row)))}
+                  tiled={params.cell * cam.scale.x < BADGE_MIN_PX && level < LOOSE_LEVEL} />
           )}
           {stale && (
             <p className="wall-stale" role="status">

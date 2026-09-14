@@ -14,13 +14,14 @@ import type { Facts } from './derive';
 import { cornerBadgeAt, DEFAULT_WASH, drawPaintCommand, type DrawOptions } from './draw2d';
 import { scenePainter, type SceneWallPainter } from './drawScene';
 import { positionAt, rectAt, visiblePositions, type Laid } from './layout';
-import { paintCommands, type Appearance, type PaintCommand } from './paint';
+import { DEFAULT_APPEARANCE, DEFAULT_GROUND, paintCommands, type Appearance, type PaintCommand } from './paint';
 import { defaultPalette, readPalette, type Palette } from './palette';
 import { pinchStep } from './pinch';
 import { centerReveal, panToReveal } from './reveal';
 import type { Item } from './schema';
 import type { SheetManifest } from './sheet';
-import type { RampName } from './tint';
+import { STATUS, type RampName } from './tint';
+import { offscreenSurface, TileCache } from './tiles';
 import './Wall.css';
 
 const ARROW_DIRECTION: Record<string, Direction> = {
@@ -30,6 +31,8 @@ const ARROW_DIRECTION: Record<string, Direction> = {
 export const DEFAULT_DRAG_THRESHOLD_PX = 4;
 /** Past this many cells on screen the wall draws nothing cell by cell. */
 export const MAX_DRAWN_CELLS = 50_000;
+/** How long a frame may spend rendering tiles before it draws what it has. */
+const TILE_BUDGET_MS = 10;
 
 export interface WallProps<T extends Item> {
   compiled: CompiledSpec<T>;
@@ -74,6 +77,9 @@ export interface WallProps<T extends Item> {
   ground?: string;
   /** What a screen reader hears when the caret lands on a row. */
   describe?: (row: number) => string;
+  /** Draw from the tile pyramid rather than cell by cell: for cells too small
+   *  to carry badges, where a whole corpus can be on screen. */
+  tiled?: boolean;
 }
 
 function ongoingInvoker(action: typeof viewportDragPanAction) {
@@ -93,7 +99,7 @@ export function Wall<T extends Item>({
   dragThresholdPx = DEFAULT_DRAG_THRESHOLD_PX,
   pixelScale = 1, appearance, tint, gradient, stale = false,
   sceneRenderer = false, linkedBadges, linkTarget, cssRoot = '--wall',
-  drawMark, washColor = DEFAULT_WASH, ground, describe,
+  drawMark, washColor = DEFAULT_WASH, ground, describe, tiled = false,
 }: WallProps<T>) {
   const ref = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
@@ -142,6 +148,19 @@ export function Wall<T extends Item>({
     rootObserver?.observe(root!, { attributes: true, attributeFilter: ['style'] });
     return () => { themeObserver.disconnect(); rootObserver?.disconnect(); };
   }, [compiled, cssRoot]);
+
+  const tileScene = useMemo(() => ({
+    compiled, facts, laid, manifest, sheet, palette, options, highlight, highlightTag,
+    appearance: appearance ?? DEFAULT_APPEARANCE, tint: tint ?? STATUS, gradient: gradient ?? 'ember',
+    stale, ground: ground ?? DEFAULT_GROUND,
+  }), [compiled, facts, laid, manifest, sheet, palette, options, highlight, highlightTag,
+       appearance, tint, gradient, stale, ground]);
+  const tilesRef = useRef<TileCache<T> | null>(null);
+  if (tilesRef.current?.scene !== tileScene) {
+    tilesRef.current = new TileCache(tileScene, offscreenSurface, tilesRef.current);
+  }
+  // Bumped to draw again while tiles are still rendering.
+  const [frame, setFrame] = useState(0);
 
   const loupeCapability = useMemo(() => resolveLoupe(true), []);
   const loupe = useLoupe({ capability: loupeCapability, hostRef: ref, enabled: false });
@@ -211,7 +230,7 @@ export function Wall<T extends Item>({
     // Times the pinch: Chrome's pinch zoom magnifies the composited layer
     // without moving devicePixelRatio.
     const dpr = (window.devicePixelRatio || 1) * pixelScale;
-    const cmds = commandsFor(cam);
+    const cmds = tiled && !sceneRenderer ? [] : commandsFor(cam);
 
     const gl = glRef.current;
     if (sceneRenderer && gl) {
@@ -232,11 +251,23 @@ export function Wall<T extends Item>({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
     ctx.imageSmoothingEnabled = true;
+    if (tiled && tilesRef.current) {
+      const complete = tilesRef.current.draw(ctx, cam, { width, height }, dpr, TILE_BUDGET_MS);
+      // The caret and band labels sit over the tiles, drawn fresh every frame.
+      for (const cmd of commandsFor(cam, false, caretDrawn != null ? [caretDrawn] : [])) {
+        drawPaintCommand(ctx, cmd, sheet, palette, options);
+      }
+      if (!complete) {
+        const id = requestAnimationFrame(() => setFrame((f) => f + 1));
+        return () => cancelAnimationFrame(id);
+      }
+      return;
+    }
     for (const cmd of cmds) drawPaintCommand(ctx, cmd, sheet, palette, options);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compiled, facts, laid, rectOf, visible, cam, sheet, manifest, palette, loose, vector,
       highlight, highlightTag, caretDrawn, appearance, tint, gradient, stale, ground,
-      width, height, pixelScale, sceneRenderer, sheetBitmap, options]);
+      width, height, pixelScale, sceneRenderer, sheetBitmap, options, tiled, tileScene, frame]);
 
   // The lens magnifies what is already on screen, so it redraws the same
   // visible set recentred rather than recomputing visibility.
