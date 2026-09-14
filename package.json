@@ -9,8 +9,5 @@
   "scripts": {
     "test": "npm test --workspaces",
     "typecheck": "npm run typecheck --workspaces"
-  },
-  "peerDependencies": {
-    "@weasel-js/labkit": ">=1.5.0"
   }
 }
