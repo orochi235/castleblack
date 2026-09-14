@@ -44,6 +44,8 @@ const NONE = { key: 'none', label: 'nothing' };
 const NO_ROWS = new Uint32Array(0);
 /** The most cells on screen that the loose and vector rungs will fetch for. */
 const MAX_THUMB_CELLS = 5_000;
+/** How far past each edge of the screen, in screens, pictures load ahead. */
+const THUMB_OVERSCAN = 0.5;
 
 export interface WallGrouping<T extends Item> {
   key: string;
@@ -350,10 +352,17 @@ function WallViewBody<T extends Item>({
   }, [cellPx, size.width, size.height, params.levelUpHysteresis, params.levelDownHysteresis]);
 
   // Only the loose and vector rungs fetch per cell, and by then few are on screen.
-  const visible = useMemo(
-    () => (cam && facts && level >= LOOSE_LEVEL
-      ? visiblePositions(laid, cam, slice, MAX_THUMB_CELLS) ?? [] : []),
-    [laid, cam, slice, level, facts]);
+  // On-screen cells first, then a margin half a screen wide, fetched ahead.
+  const visible = useMemo(() => {
+    if (!cam || !facts || level < LOOSE_LEVEL) return [];
+    const on = visiblePositions(laid, cam, slice, MAX_THUMB_CELLS) ?? [];
+    const wide = visiblePositions(laid, cam, {
+      x: slice.x - slice.width * THUMB_OVERSCAN, y: slice.y - slice.height * THUMB_OVERSCAN,
+      width: slice.width * (1 + 2 * THUMB_OVERSCAN), height: slice.height * (1 + 2 * THUMB_OVERSCAN),
+    }, MAX_THUMB_CELLS) ?? [];
+    const seen = new Set(on);
+    return [...on, ...wide.filter((p) => !seen.has(p))];
+  }, [laid, cam, slice, level, facts]);
   const visibleItems = useMemo(
     () => (facts ? visible.map((p) => facts.store.get(laid.order[p]!)) : []),
     [facts, visible, laid]);

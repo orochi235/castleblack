@@ -107,5 +107,7 @@ the work profile, not a failure.
    column rewrite when its pin moves.
 4. **Tiles still pop in on a fast zoom.** They now fade in over a stand-in (the
    previous scene, finer tiles, or a coarser one, with a whole-wall floor level
-   always kept) and the ring just off screen renders with spare frame time;
+   always kept). Off screen, the level above and a one- or two-tile margin leaning
+   the way the view last moved render with spare frame time and then idle time,
+   and loose and vector pictures load half a screen ahead;
    whether that is enough is the owner's call from using it.

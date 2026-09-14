@@ -51,6 +51,10 @@ const surfaces = () => {
 };
 
 const cam = (x: number, y: number, s: number) => ({ x, y, scale: { x: s, y: s } });
+const at = (z: number, tx: number, ty: number) => {
+  const size = TILE_PX / 2 ** z;
+  return { z, tx, ty, key: tileKey(z, tx, ty), x: tx * size, y: ty * size, size };
+};
 
 describe('coveringTiles', () => {
   it('picks the level at least as sharp as the screen', () => {
@@ -120,12 +124,12 @@ describe('TileCache', () => {
   it('lets the least recently used tile go past its limit', () => {
     const { make } = surfaces();
     const cache = new TileCache(scene(items, 1, 8), make, null, 2);
-    cache.draw(fakeContext(), cam(0, 0, 1), { width: 1024, height: 512 }, 1, 1000);
-    cache.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
-    cache.draw(fakeContext(), cam(0, 512, 1), { width: 512, height: 512 }, 1, 1000);
+    cache.render(at(0, 0, 0));
+    cache.render(at(0, 1, 0));
+    cache.render(at(0, 2, 0));
     expect(cache.size).toBe(2);
-    expect(cache.has(tileKey(0, 1, 0))).toBe(false);
-    expect(cache.has(tileKey(0, 0, 0))).toBe(true);
+    expect(cache.has(tileKey(0, 0, 0))).toBe(false);
+    expect(cache.has(tileKey(0, 2, 0))).toBe(true);
   });
 
   it('writes small cells as pixels in their state color', () => {
@@ -173,12 +177,12 @@ describe('TileCache', () => {
     let t = 1000;
     const ctx = fakeContext();
     const frame = next.draw(ctx, cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000, () => t);
-    expect(frame).toEqual({ complete: true, animating: true });
+    expect(frame).toMatchObject({ complete: true, animating: true });
     const drawn = ctx.calls.filter(([name]) => name === 'drawImage').map(([, args]) => args[0]);
     expect(drawn[0]).toBe(old.peek(tileKey(0, 0, 0))!.canvas);
     t += FADE_MS;
     expect(next.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000, () => t))
-      .toEqual({ complete: true, animating: false });
+      .toMatchObject({ complete: true, animating: false });
   });
 
   it('stands in with the finer tiles it holds when zooming out', () => {
@@ -198,18 +202,41 @@ describe('TileCache', () => {
     const { make } = surfaces();
     // 8 cells of 32 is 256 wide, which two tiles a side at level 2 hold.
     const cache = new TileCache(scene(items, 32, 8), make, null, 1);
-    cache.draw(fakeContext(), cam(0, 0, 16), { width: 512, height: 512 }, 1, 1000);
-    // A limit of one lets the view's own tile go and keeps the floor.
+    cache.render(at(2, 0, 0));
+    cache.render(at(4, 0, 0));
+    cache.render(at(4, 1, 0));
     expect(cache.has(tileKey(2, 0, 0))).toBe(true);
     expect(cache.size).toBe(1);
   });
 
-  it('renders the ring just off screen with time left over', () => {
+  it('renders a margin off screen and the level above with time left over', () => {
     const { make } = surfaces();
     const cache = new TileCache(scene(items, 1, 8), make);
-    cache.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
+    const frame = cache.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
+    expect(frame.pending).toBe(false);
     expect(cache.has(tileKey(0, 1, 0))).toBe(true);
-    expect(cache.has(tileKey(0, -1, -1))).toBe(true);
+    expect(cache.has(tileKey(0, -2, 2))).toBe(true);
+    expect(cache.has(tileKey(-1, 0, 0))).toBe(true);
+  });
+
+  it('says tiles off screen are pending when the frame runs out of time', () => {
+    const { make } = surfaces();
+    const cache = new TileCache(scene(items, 1, 8), make);
+    let t = 0;
+    const frame = cache.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 5, () => (t += 3));
+    expect(frame).toMatchObject({ complete: true, pending: true });
+  });
+
+  it('leans the margin the way the view last moved', () => {
+    const { make } = surfaces();
+    const cache = new TileCache(scene(items, 1, 8), make);
+    const view = { width: 512, height: 512 };
+    cache.draw(fakeContext(), cam(0, 0, 1), view, 1, 1000);
+    // Moving right by a tile, with time for just one off-screen tile.
+    let t = 0;
+    const clock = () => (t += 1);
+    cache.draw(fakeContext(), cam(40, 0, 1), view, 1, 3, clock);
+    expect(cache.has(tileKey(0, 2, 0)) || cache.has(tileKey(0, 3, 0))).toBe(true);
   });
 
   it('writes borderless square cells below glyph size as pixels when there is no sheet', () => {

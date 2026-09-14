@@ -51,8 +51,14 @@ export interface TileSurface {
 }
 
 /** What a frame of tiles came to. `complete`: every tile drawn was this
- *  scene's own. `animating`: a tile is still fading in, so draw again. */
-export interface TileFrame { complete: boolean; animating: boolean }
+ *  scene's own. `animating`: a tile is still fading in, so draw again.
+ *  `pending`: tiles just off screen are still unrendered, worth idle time. */
+export interface TileFrame { complete: boolean; animating: boolean; pending: boolean }
+
+/** How many tiles past the screen to render ahead: more when a screen needs few. */
+const overscanFor = (onScreen: number) => (onScreen <= 24 ? 2 : 1);
+/** How far ahead of a pan, in frames of the same motion, the overscan leans. */
+const LEAD_FRAMES = 12;
 export type MakeSurface = (px: number) => TileSurface;
 
 export interface TileRef { z: number; tx: number; ty: number; key: string; x: number; y: number; size: number }
@@ -216,12 +222,16 @@ export function renderTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRende
 export class TileCache<T extends Item> {
   readonly #tiles = new Map<string, TileSurface>();
   #previous: TileCache<T> | null;
+  #lastCenter: { x: number; y: number } | null = null;
+  #lead = { x: 0, y: 0 };
+  #room: number;
 
   /** `previous` stands in for tiles this scene has not rendered yet, so a
    *  filter change redraws in place instead of blanking. */
   constructor(readonly scene: TileScene<T>, readonly make: MakeSurface,
               previous: TileCache<T> | null = null, readonly max = MAX_TILES) {
     this.#previous = previous;
+    this.#room = max;
     previous?.forget();
   }
 
@@ -246,7 +256,7 @@ export class TileCache<T extends Item> {
     surface.bornAt = bornAt;
     this.#tiles.set(tile.key, surface);
     for (const key of this.#tiles.keys()) {
-      if (this.#tiles.size <= this.max) break;
+      if (this.#tiles.size <= this.#room) break;
       if (!key.startsWith(`${this.#floor}/`)) this.#tiles.delete(key);
     }
     return surface;
@@ -277,6 +287,15 @@ export class TileCache<T extends Item> {
     const byCenter = (a: TileRef, b: TileRef) =>
       Math.hypot(a.x + a.size / 2 - cx, a.y + a.size / 2 - cy)
       - Math.hypot(b.x + b.size / 2 - cx, b.y + b.size / 2 - cy);
+    // Lean the overscan the way the view last moved.
+    if (this.#lastCenter) {
+      this.#lead = { x: (cx - this.#lastCenter.x) * LEAD_FRAMES, y: (cy - this.#lastCenter.y) * LEAD_FRAMES };
+    }
+    this.#lastCenter = { x: cx, y: cy };
+    const ahead = { x: cx + this.#lead.x, y: cy + this.#lead.y };
+    const byLead = (a: TileRef, b: TileRef) =>
+      Math.hypot(a.x + a.size / 2 - ahead.x, a.y + a.size / 2 - ahead.y)
+      - Math.hypot(b.x + b.size / 2 - ahead.x, b.y + b.size / 2 - ahead.y);
 
     const floor = this.#floor;
     const wanted: TileRef[] = [];
@@ -291,25 +310,44 @@ export class TileCache<T extends Item> {
     wanted.push(...[...tiles].sort(byCenter));
     const first = tiles.length > 0 ? tiles[0]! : null;
     const last = tiles.length > 0 ? tiles[tiles.length - 1]! : null;
-    const ring: TileRef[] = [];
+    // Off screen: the level a zoom out lands on, then a margin at this level.
+    const extra: TileRef[] = [];
     if (first && last) {
-      for (let ty = first.ty - 1; ty <= last.ty + 1; ty++) {
-        for (let tx = first.tx - 1; tx <= last.tx + 1; tx++) {
+      const seen = new Set(wanted.map((t) => t.key));
+      for (const t of tiles) {
+        const up = ref(z - 1, Math.floor(t.tx / 2), Math.floor(t.ty / 2));
+        if (!seen.has(up.key)) { seen.add(up.key); extra.push(up); }
+      }
+      const margin = overscanFor(tiles.length);
+      const ring: TileRef[] = [];
+      for (let ty = first.ty - margin; ty <= last.ty + margin; ty++) {
+        for (let tx = first.tx - margin; tx <= last.tx + margin; tx++) {
           if (ty < first.ty || ty > last.ty || tx < first.tx || tx > last.tx) ring.push(ref(z, tx, ty));
         }
       }
+      extra.push(...ring.sort(byLead));
+      // Room for the screen, its margin and the level above, twice over.
+      this.#room = Math.max(this.max, 2 * (wanted.length + extra.length));
     }
 
     let rendered = 0;
     const fresh = this.#tiles.size > 0 || this.#previous !== null;
-    for (const tile of [...wanted, ...ring.sort(byCenter)]) {
+    const onScreenDone = () => wanted.every((t) => this.#tiles.has(t.key));
+    for (const tile of wanted) {
       if (this.#tiles.has(tile.key)) continue;
       if (rendered > 0 && now() - start >= budgetMs) break;
-      // The ring is only worth the time a frame has left over.
-      if (ring.includes(tile) && wanted.some((t) => !this.#tiles.has(t.key))) break;
       this.render(tile, fresh || rendered > 0 ? now() : undefined);
       rendered++;
     }
+    // Off screen only with time a frame has left over.
+    if (onScreenDone()) {
+      for (const tile of extra) {
+        if (this.#tiles.has(tile.key)) continue;
+        if (now() - start >= budgetMs) break;
+        this.render(tile, now());
+      }
+    }
+    const pending = extra.some((t) => !this.#tiles.has(t.key));
 
     let complete = true;
     let animating = false;
@@ -335,7 +373,7 @@ export class TileCache<T extends Item> {
       ctx.drawImage(hit.canvas, dx, dy, dw, dh);
       ctx.globalAlpha = alpha;
     }
-    return { complete, animating };
+    return { complete, animating, pending };
   }
 
   #held(key: string): TileSurface | undefined {

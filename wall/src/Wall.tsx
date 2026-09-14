@@ -261,7 +261,7 @@ export function Wall<T extends Item>({
     ctx.clearRect(0, 0, width, height);
     ctx.imageSmoothingEnabled = true;
     if (tiled && tilesRef.current) {
-      const { complete, animating } = tilesRef.current.draw(ctx, cam, { width, height }, dpr,
+      const { complete, animating, pending } = tilesRef.current.draw(ctx, cam, { width, height }, dpr,
                                                             TILE_BUDGET_MS);
       // The caret and band labels sit over the tiles, drawn fresh every frame.
       for (const cmd of commandsFor(cam, false, caretDrawn != null ? [caretDrawn] : [])) {
@@ -271,6 +271,13 @@ export function Wall<T extends Item>({
       if (!complete || animating) {
         const id = requestAnimationFrame(() => setFrame((f) => f + 1));
         return () => cancelAnimationFrame(id);
+      }
+      // With the screen drawn, spend idle time on the tiles just off it.
+      if (pending) {
+        const idle = window.requestIdleCallback
+          ? window.requestIdleCallback(() => setFrame((f) => f + 1), { timeout: 200 })
+          : window.setTimeout(() => setFrame((f) => f + 1), 32);
+        return () => (window.cancelIdleCallback ? window.cancelIdleCallback(idle) : window.clearTimeout(idle));
       }
       return;
     }
