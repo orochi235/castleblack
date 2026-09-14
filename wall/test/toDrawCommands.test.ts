@@ -56,6 +56,14 @@ it('maps a sprite to its ground and its tile, and washes in the passed color', (
   expect(washed.commands[2]).toMatchObject({ kind: 'path', fill: { color: '#123456', opacity: 0.5 } });
 });
 
+it('maps a glyphed cell to its ground, as faint as draw2d draws it', async () => {
+  const { glyphBlend } = await import('../src/paint');
+  const { commands } = toDrawCommands([fill({ glyph: 'G', cover: 0.2 })], SHEET);
+  expect(commands).toMatchObject([
+    { kind: 'path', fill: { color: '#aabbcc', opacity: glyphBlend(40, 0.2).ground } },
+  ]);
+});
+
 it('groups a dimmed sprite under its alpha', () => {
   const { commands } = toDrawCommands([sprite({ alpha: 0.25 })], SHEET);
   expect(commands).toMatchObject([{ kind: 'group', alpha: 0.25 }]);

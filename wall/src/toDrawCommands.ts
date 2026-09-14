@@ -5,7 +5,7 @@
  */
 import { ellipsePath, rectPath, type DrawCommand } from '@weasel-js/core';
 import { CIRCLE_SCALE, DEFAULT_WASH } from './draw2d';
-import type { PaintCommand } from './paint';
+import { glyphBlend, type PaintCommand } from './paint';
 
 /** Named once so the hybrid executor's residue can be checked against it at
  *  compile time: a name added here and nowhere else is a cell nothing paints. */
@@ -87,6 +87,8 @@ export function toDrawCommands(cmds: readonly PaintCommand[],
       if (cmd.mark) {
         unsupported.add(UNSUPPORTED.mark);
       } else if (cmd.glyph) {
+        out.push(fillRect(cmd.dx, cmd.dy, cmd.dw, cmd.dh, cmd.fill,
+                          glyphBlend(cmd.dw, cmd.cover).ground));
         unsupported.add(UNSUPPORTED.glyph);
       } else if (cmd.shape === 'circle') {
         const iw = cmd.dw * CIRCLE_SCALE;

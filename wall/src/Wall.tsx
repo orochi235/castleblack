@@ -239,17 +239,19 @@ export function Wall<T extends Item>({
     // Times the pinch: Chrome's pinch zoom magnifies the composited layer
     // without moving devicePixelRatio.
     const dpr = (window.devicePixelRatio || 1) * pixelScale;
-    const cmds = tiled && !sceneRenderer ? [] : commandsFor(cam);
+    const cmds = tiled ? [] : commandsFor(cam);
 
     const gl = glRef.current;
     if (sceneRenderer && gl) {
       if (painterRef.current?.gl !== gl) {
         painterRef.current = { painter: scenePainter(gl, canvas), gl };
       }
+      // A tiled wall is past the cells `visible` will list, so it draws below
+      // as tiles; the empty paint clears the GL layer they would show it through.
       painterRef.current.painter.paint(cmds, { width, height, dpr },
                                        { bitmap: sheetBitmap, img: sheet }, palette, options,
                                        'linear');
-      return;
+      if (!tiled) return;
     }
 
     canvas.width = Math.round(width * dpr);

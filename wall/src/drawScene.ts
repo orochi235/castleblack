@@ -6,7 +6,7 @@ import {
   CIRCLE_SCALE, drawCellMark, drawGlyph, drawOverlays, drawPaintCommand,
   strokeCaret, strokeSlash, type DrawOptions,
 } from './draw2d';
-import type { PaintCommand } from './paint';
+import { glyphBlend, type PaintCommand } from './paint';
 import type { Palette } from './palette';
 import { UNSUPPORTED, toDrawCommands, type Sampling } from './toDrawCommands';
 
@@ -44,10 +44,15 @@ export function drawResidue(ctx: CanvasRenderingContext2D, cmd: PaintCommand,
                    cmd.dw * CIRCLE_SCALE / 2, options);
       ctx.restore();
     } else if (cmd.glyph) {
-      ctx.save();
-      ctx.fillStyle = cmd.fill;
-      drawGlyph(ctx, cmd.glyph, box);
-      ctx.restore();
+      // Weasel drew the ground; the glyph fades in over it as `draw2d` fades it.
+      const { ink } = glyphBlend(cmd.dw, cmd.cover);
+      if (ink > 0) {
+        ctx.save();
+        ctx.globalAlpha *= ink;
+        ctx.fillStyle = cmd.fill;
+        drawGlyph(ctx, cmd.glyph, box);
+        ctx.restore();
+      }
     }
     // The border rect is weasel's; only the diagonal is left.
     if (cmd.slash) strokeSlash(ctx, { ...box, border: cmd.border, borderWidth: cmd.borderWidth });

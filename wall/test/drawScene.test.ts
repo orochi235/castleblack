@@ -90,10 +90,11 @@ test('a slashed cell gets the diagonal and not a second border rect', () => {
   expect(calls.filter((c) => c.startsWith('stroke('))).toHaveLength(1);
 });
 
-test('the glyph is the second half\'s, since weasel emits no body for a glyphed cell', () => {
+test('a glyphed cell leaves only its glyph, since weasel draws the ground', () => {
   const { ctx, calls } = recorder();
   drawResidue(ctx, fill({ glyph: 'G' }), null, PALETTE, OPTIONS);
   expect(calls.some((c) => c.startsWith('fillText(G'))).toBe(true);
+  expect(calls.filter((c) => c.startsWith('fillRect'))).toEqual([]);
 });
 
 test('a quiet cell\'s mark goes to drawMark when one is given', () => {
