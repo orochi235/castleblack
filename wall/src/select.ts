@@ -1,6 +1,6 @@
 import type { CompiledSpec } from './cel';
 import { rowsByIndex, sortColumn, type Facts } from './derive';
-import { chunks, compareChunks, type Chunks } from './natural';
+import { naturalKey } from './natural';
 import type { Item, TagAxis } from './schema';
 
 /** Which items are on the wall, and in what order. */
@@ -90,9 +90,9 @@ function rankNumbers(values: readonly (number | null)[], desc: boolean): { rank:
 
 function rankValues(values: readonly unknown[], desc: boolean): { rank: Int32Array; ranks: number } {
   const dir = desc ? -1 : 1;
-  // Split once per value: re-splitting both strings on every comparison was
+  // One flat key per value: re-splitting both strings on every comparison was
   // most of the cost of sorting names.
-  const split = values.map((v) => (typeof v === 'string' ? chunks(v) : null));
+  const keys = values.map((v) => (typeof v === 'string' ? naturalKey(v) : ''));
   const byValue = Array.from(values.keys()).sort((a, b) => {
     const ka = values[a];
     const kb = values[b];
@@ -100,7 +100,9 @@ function rankValues(values: readonly unknown[], desc: boolean): { rank: Int32Arr
     if (none(kb)) return -1;
     if (ka === kb) return 0;
     if (typeof ka === 'string' && typeof kb === 'string') {
-      return compareChunks(split[a] as Chunks, split[b] as Chunks) * dir;
+      const x = keys[a]!;
+      const y = keys[b]!;
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
     }
     return ((ka as number) < (kb as number) ? -1 : 1) * dir;
   });

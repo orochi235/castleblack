@@ -1,20 +1,22 @@
 // The wall at a million items, measured in headless Chromium against its gates.
 //
-//   node hosts/unicode/bench/browser.mjs [--dpr 2]
+//   node hosts/unicode/bench/browser.mjs [--dpr 2] [--dev]
 //
-// Starts the feed server and a Vite dev server, loads the page once to warm
-// both, then times on a fresh page: first paint of every code point, frame
+// Starts the feed server and serves a production build of the page (or the
+// Vite dev server, with --dev), loads the page once to warm both, then times on
+// a fresh page: first paint of every code point, frame
 // intervals over a scripted pan and zoom with the whole wall on screen, and
 // the time from each selection change to the next complete frame. Prints each
 // measurement as it lands and exits nonzero on a miss.
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
-import { createServer } from 'vite';
+import { build, createServer, preview } from 'vite';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const dprArg = process.argv.indexOf('--dpr');
 const DPR = dprArg > 0 ? Number(process.argv[dprArg + 1]) : 1;
+const DEV = process.argv.includes('--dev');
 const API_PORT = 8797;
 const VIEWPORT = { width: 1600, height: 1000 };
 const MARK = 'pezlie:complete';
@@ -54,12 +56,18 @@ try {
   for (const c of ['codepoints', 'assigned']) {
     await (await fetch(`http://127.0.0.1:${API_PORT}/api/${c}/items/ucd`, { headers: { 'accept-encoding': 'gzip' } })).arrayBuffer();
   }
-  vite = await createServer({
-    root, configFile: `${root}vite.config.ts`, logLevel: 'warn',
-    server: { port: 5297, strictPort: false, proxy: { '/api': `http://127.0.0.1:${API_PORT}` } },
-  });
-  await vite.listen();
+  const proxy = { '/api': `http://127.0.0.1:${API_PORT}` };
+  const configFile = `${root}vite.config.ts`;
+  if (DEV) {
+    vite = await createServer({ root, configFile, logLevel: 'warn', server: { port: 5297, strictPort: false, proxy } });
+    await vite.listen();
+  } else {
+    await build({ root, configFile, logLevel: 'warn', build: { outDir: `${root}dist`, emptyOutDir: true } });
+    vite = await preview({ root, configFile, logLevel: 'warn',
+                           build: { outDir: `${root}dist` }, preview: { port: 5297, strictPort: false, proxy } });
+  }
   const base = vite.resolvedUrls.local[0];
+  console.log(`serving ${DEV ? 'the dev server' : 'a production build'} at ${base}, dpr ${DPR}`);
 
   browser = await chromium.launch({ headless: true });
   const open = async () => {
@@ -79,6 +87,16 @@ try {
   const firstPaint = await page.evaluate((mark) => performance.getEntriesByName(mark)[0].startTime, MARK);
   report('first paint, every code point', firstPaint, GATES.firstPaintMs,
          firstPaint <= GATES.firstPaintTargetMs ? '' : `  target ${GATES.firstPaintTargetMs} ms not met`);
+  const t = await page.evaluate(() => {
+    const nav = performance.getEntriesByType('navigation')[0];
+    const feed = performance.getEntriesByType('resource').find((r) => r.name.includes('/items/'));
+    return { scripts: nav.domContentLoadedEventEnd, asked: feed?.startTime ?? NaN, got: feed?.responseEnd ?? NaN,
+             wire: feed?.encodedBodySize ?? NaN, body: feed?.decodedBodySize ?? NaN };
+  });
+  const mb = (bytes) => (bytes / 1e6).toFixed(1);
+  console.log(`        scripts loaded ${t.scripts.toFixed(0)} ms, feed asked ${t.asked.toFixed(0)} ms, `
+    + `received ${t.got.toFixed(0)} ms (${mb(t.wire)} MB sent, ${mb(t.body)} MB unpacked), `
+    + `drawn ${(firstPaint - t.got).toFixed(0)} ms after`);
 
   // Out far enough that the whole wall is on screen.
   const cx = VIEWPORT.width / 2;

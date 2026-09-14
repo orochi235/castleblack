@@ -15,6 +15,15 @@ export function chunks(text: string): Chunks {
   return (text.match(CHUNK) ?? []).map((c) => (/^\d/.test(c) ? Number(c) : c));
 }
 
+/** A string that orders under plain `<` exactly as `naturalCompare` orders
+ *  `text`: each digit run becomes a marker below every printable character
+ *  and the number zero-padded, so one string compare stands in for a run of
+ *  chunk compares. Text holding U+0000 is not ordered faithfully. */
+export function naturalKey(text: string): string {
+  return chunks(text).map((c) => (typeof c === 'number' ? `\u0000${String(c).padStart(16, '0')}` : c))
+    .join('');
+}
+
 /** Compares two ids component-wise. A digit run sorts before a letter run at
  *  the same position, which is what keeps `4100` ahead of `4100b`: the
  *  shorter id runs out of components first and sorts first. */

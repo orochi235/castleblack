@@ -9,5 +9,6 @@ node_modules/
 hosts/unicode/.venv/
 hosts/unicode/.ucd/
 hosts/unicode/out/
+hosts/unicode/dist/
 wall/dist/
 !docs/screenshots/*.png
