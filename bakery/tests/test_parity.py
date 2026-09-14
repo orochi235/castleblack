@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from bakery import bake
+from pezlie import bake
 
 LEGACY = (Path(os.environ.get("BRICK_ICONS")
                or Path(__file__).resolve().parents[3] / "brick-icons")

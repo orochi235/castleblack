@@ -5,8 +5,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from bakery.bake import _bake_item, _compose
-from bakery.lock import slot_lock
+from pezlie.bake import _bake_item, _compose
+from pezlie.lock import slot_lock
 
 
 @dataclass(frozen=True)

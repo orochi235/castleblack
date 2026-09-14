@@ -8,7 +8,7 @@ JSON manifest beside each sheet.
 It knows nothing about what the items are. brick-icons is the first host.
 
 ```bash
-pip install pezlie            # imports as `bakery`
+pip install pezlie
 pip install 'pezlie[routes]'  # with the FastAPI routes
 ```
 
@@ -37,10 +37,10 @@ It needs `resvg` on `PATH` for SVG renders. The wall that draws what it bakes is
   wall can tell a stale cell from a fresh one.
 
 ```python
-from bakery.batch import Render, bake_slot
+from pezlie.batch import Render, bake_slot
 bake_slot(renders, out="thumbs/occt", order=all_ids)
 
-from bakery.routes import render_router, thumbs_router
+from pezlie.routes import render_router, thumbs_router
 app.include_router(thumbs_router(slot_dir), prefix="/api/thumbs")
 app.include_router(render_router(render_file, root, known_slot), prefix="/api/corpus/render")
 ```

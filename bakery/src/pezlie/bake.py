@@ -11,9 +11,9 @@ from pathlib import Path
 
 from PIL import Image
 
-from bakery.lock import slot_lock
-from bakery.sheet import GROUND, LEVELS, LOOSE_LEVEL, SHEET_LEVELS, geometry
-from bakery.sidecar import BAKED, baked_shas, write_json
+from pezlie.lock import slot_lock
+from pezlie.sheet import GROUND, LEVELS, LOOSE_LEVEL, SHEET_LEVELS, geometry
+from pezlie.sidecar import BAKED, baked_shas, write_json
 
 #: WebP q90 halves sheet-32 against PNG, and the wall fetches it on every open.
 THUMB_EXT = "webp"

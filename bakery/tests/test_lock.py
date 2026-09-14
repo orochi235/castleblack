@@ -1,7 +1,7 @@
 import pytest
 
-from bakery import bake
-from bakery.lock import BakeInProgress, slot_lock
+from pezlie import bake
+from pezlie.lock import BakeInProgress, slot_lock
 
 
 def test_compose_refuses_while_another_bake_holds_the_slot(tmp_path):

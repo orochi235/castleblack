@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 
-from bakery.routes import render_router, thumbs_router
+from pezlie.routes import render_router, thumbs_router
 from fastapi import FastAPI, HTTPException
 
 from make import SLOTS

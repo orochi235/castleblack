@@ -3,9 +3,9 @@ import json
 import pytest
 from PIL import Image
 
-from bakery import bake
-from bakery.sheet import LEVELS, geometry
-from bakery.sidecar import BAKED, baked_shas, write_json
+from pezlie import bake
+from pezlie.sheet import LEVELS, geometry
+from pezlie.sidecar import BAKED, baked_shas, write_json
 
 
 def test_it_rasterizes_every_level_for_one_item(tmp_path, svg):

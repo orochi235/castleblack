@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from bakery.routes import render_router, thumbs_router
+from pezlie.routes import render_router, thumbs_router
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 import pytest
 
-from bakery.batch import Render, bake_slot
-from bakery.lock import BakeInProgress, slot_lock
-from bakery.sidecar import baked_shas
+from pezlie.batch import Render, bake_slot
+from pezlie.lock import BakeInProgress, slot_lock
+from pezlie.sidecar import baked_shas
 
 
 def test_it_bakes_every_render_and_composes_the_sheets(tmp_path, svg):

@@ -11,7 +11,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from bakery import bake
+from pezlie import bake
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--brick-icons", required=True, type=Path)

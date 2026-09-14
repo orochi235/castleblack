@@ -35,7 +35,7 @@ package is `pezlie-workspace`. The hosts still import the wall's source as
 `@pezlie/wall/src/*`, through a tsconfig path and a vite alias, the specifier
 brick-icons' lab aliases too.
 
-**`bakery` goes to PyPI as `pezlie` and still imports as `bakery`.** The demo
+**`bakery` goes to PyPI as `pezlie` and imports as `pezlie`.** The demo
 host's `pyproject.toml` names it `pezlie`.
 
 ## What is decided that the code does not say

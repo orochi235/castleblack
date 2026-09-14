@@ -14,8 +14,8 @@ import shutil
 import time
 from pathlib import Path
 
-from bakery.batch import Render, bake_slot
-from bakery.sidecar import BAKED, baked_shas, write_json
+from pezlie.batch import Render, bake_slot
+from pezlie.sidecar import BAKED, baked_shas, write_json
 
 SLOTS = ("outline", "filled")
 KINDS = ("circle", "square", "triangle", "star", "ring", "cross")
