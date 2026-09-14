@@ -1,13 +1,13 @@
 import { celEnv, celMap, isCelError, isCelList, parse, plan } from '@bufbuild/cel';
 import { strings } from '@bufbuild/cel/ext';
-import { readsOf } from './reads';
+import { fieldOf, readsOf } from './reads';
 import type { CorpusSpec, Item, Projection } from './schema';
 import { byPrecedence, expandStates, type StateSpec } from './states';
 
 /** `reads` is the item fields the rule uses, or null when that cannot be
  *  told; `derive` groups rows by those fields' values. */
 export type Predicate<T> = ((item: T) => boolean) & { reads: string[] | null };
-export type Value<T> = ((item: T) => unknown) & { reads: string[] | null };
+export type Value<T> = ((item: T) => unknown) & { reads: string[] | null; field?: string };
 
 const withReads = <F extends object>(fn: F, reads: string[] | null) => Object.assign(fn, { reads });
 
@@ -106,10 +106,15 @@ export function compileSpec<T extends Item>(spec: CorpusSpec<T>):
   };
   const value = (table: string, key: string, expr: string): Value<T> => {
     const run = program(table, key, expr);
-    return withReads((item: T) => {
-      const out = run(item);
-      return out === FAILED ? null : out;
-    }, run.reads);
+    const out = withReads((item: T) => {
+      const got = run(item);
+      return got === FAILED ? null : got;
+    }, run.reads) as Value<T>;
+    try {
+      const field = fieldOf(parse(expr));
+      if (field !== null) out.field = field;
+    } catch { /* already reported by program */ }
+    return out;
   };
   const projection = (table: string, key: string, p: Projection): Value<T> => {
     if ('expr' in p) return value(table, key, p.expr);

@@ -48,3 +48,18 @@ export function readsOf(parsed: ParsedExpr): string[] | null {
 
   return walk(parsed.expr) ? [...fields].sort() : null;
 }
+
+/** The field an expression is nothing but a read of -- `item.f` or
+ *  `item['f']` -- whose value can be taken from the column as it stands. */
+export function fieldOf(parsed: ParsedExpr): string | null {
+  const k = parsed.expr?.exprKind;
+  const isItem = (e: Expr | undefined) =>
+    e?.exprKind.case === 'identExpr' && e.exprKind.value.name === 'item';
+  if (k?.case === 'selectExpr' && !k.value.testOnly && isItem(k.value.operand)) return k.value.field;
+  if (k?.case === 'callExpr' && k.value.function === '_[_]' && !k.value.target
+      && isItem(k.value.args[0]) && k.value.args[1]?.exprKind.case === 'constExpr'
+      && k.value.args[1].exprKind.value.constantKind.case === 'stringValue') {
+    return k.value.args[1].exprKind.value.constantKind.value;
+  }
+  return null;
+}

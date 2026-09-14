@@ -31,6 +31,17 @@ export function evaluateGrouped<T extends Item>(store: ItemStore<T>,
     if (n > 0) results.push(fn({} as T));
     return { codes, results };
   }
+  // A bare read of one field is that column, with absence read as null.
+  const field = (fn as { field?: string }).field;
+  if (field !== undefined && reads.length === 1 && reads[0] === field) {
+    const column = store.column(field);
+    const none = column.values.length;
+    for (let row = 0; row < n; row++) {
+      const code = column.codes[row]!;
+      codes[row] = code === ABSENT ? none : code;
+    }
+    return { codes, results: [...column.values.map((v) => v ?? null), null] };
+  }
   const columns = reads.map((field) => store.column(field));
   const bases = columns.map((c) => c.values.length + 1);
   const product = bases.reduce((a, b) => a * b, 1);

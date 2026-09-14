@@ -38,7 +38,49 @@ export function sortOrder<T extends Item>(facts: Facts<T>, key: string): Uint32A
   if (order) return order;
 
   const { codes, values } = sortColumn(facts, key);
-  const dir = def.desc ? -1 : 1;
+  const { rank, ranks } = values.every((v) => none(v) || typeof v === 'number')
+    ? rankNumbers(values as (number | null)[], def.desc)
+    : rankValues(values, def.desc);
+
+  const n = facts.store.length;
+  const starts = new Uint32Array(ranks + 2);
+  for (let row = 0; row < n; row++) starts[rank[codes[row]!]! + 1]!++;
+  for (let r = 1; r < starts.length; r++) starts[r]! += starts[r - 1]!;
+  order = new Uint32Array(n);
+  const byIndex = rowsByIndex(facts);
+  for (let i = 0; i < n; i++) {
+    const row = byIndex[i]!;
+    order[starts[rank[codes[row]!]!]!++] = row;
+  }
+  facts.cache.orders.set(key, order);
+  return order;
+}
+
+/** Ranks by a native numeric sort, which a comparator over a million
+ *  distinct values is several times slower than. Nulls rank last. */
+function rankNumbers(values: readonly (number | null)[], desc: boolean): { rank: Int32Array; ranks: number } {
+  const present = Float64Array.from(values.filter((v): v is number => !none(v)));
+  present.sort();
+  let distinct = 0;
+  for (let i = 0; i < present.length; i++) {
+    if (i === 0 || present[i] !== present[i - 1]) present[distinct++] = present[i]!;
+  }
+  const rank = new Int32Array(values.length);
+  values.forEach((v, code) => {
+    if (none(v)) { rank[code] = distinct; return; }
+    let lo = 0;
+    let hi = distinct - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (present[mid]! < v!) lo = mid + 1; else hi = mid;
+    }
+    rank[code] = desc ? distinct - 1 - lo : lo;
+  });
+  return { rank, ranks: distinct };
+}
+
+function rankValues(values: readonly unknown[], desc: boolean): { rank: Int32Array; ranks: number } {
+  const dir = desc ? -1 : 1;
   const byValue = Array.from(values.keys()).sort((a, b) => {
     const ka = values[a];
     const kb = values[b];
@@ -57,19 +99,7 @@ export function sortOrder<T extends Item>(facts: Facts<T>, key: string): Uint32A
     if (i > 0 && !same) ranks++;
     rank[code] = ranks;
   });
-
-  const n = facts.store.length;
-  const starts = new Uint32Array(ranks + 2);
-  for (let row = 0; row < n; row++) starts[rank[codes[row]!]! + 1]!++;
-  for (let r = 1; r < starts.length; r++) starts[r]! += starts[r - 1]!;
-  order = new Uint32Array(n);
-  const byIndex = rowsByIndex(facts);
-  for (let i = 0; i < n; i++) {
-    const row = byIndex[i]!;
-    order[starts[rank[codes[row]!]!]!++] = row;
-  }
-  facts.cache.orders.set(key, order);
-  return order;
+  return { rank, ranks: ranks + 1 };
 }
 
 /** The rows on the wall, in view order. */

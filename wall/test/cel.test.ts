@@ -79,3 +79,13 @@ it('requires reads of a facet hook and of a tint', () => {
   });
   expect(errors.map((e) => `${e.table}.${e.key}`)).toEqual(['facets.group', 'tints.score']);
 });
+
+it('marks a sort that is nothing but a field read', () => {
+  const c = compile(SPEC);
+  expect(c.sorts.score!.field).toBe('score');
+  expect(compile({ ...SPEC, sorts: [{ key: 'x', label: 'x', value: "item['kind']", desc: false },
+                                    { key: 'y', label: 'y', value: 'item.score + 1', desc: false }] })
+    .sorts.x!.field).toBe('kind');
+  expect(compile({ ...SPEC, sorts: [{ key: 'y', label: 'y', value: 'item.score + 1', desc: false }] })
+    .sorts.y!.field).toBeUndefined();
+});

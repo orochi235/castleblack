@@ -1,13 +1,13 @@
 import type { View } from '@weasel-js/core';
 import type { CompiledSpec } from './cel';
-import { tagsOf, type Facts } from './derive';
+import { tagsOf, tintColumn, type Facts } from './derive';
 import { drawPaintCommand, type DrawOptions } from './draw2d';
 import { rectAt, visiblePositions, visibleSpans, type Laid } from './layout';
 import { paintCommands, STALE_WASH, type Appearance } from './paint';
 import type { Palette } from './palette';
 import type { Item } from './schema';
 import type { SheetManifest } from './sheet';
-import { STATUS, tintFor, type RampName } from './tint';
+import { ramp, STATUS, STEPS, tintFor, type RampName } from './tint';
 
 /** A tile's edge in pixels. */
 export const TILE_PX = 512;
@@ -112,12 +112,15 @@ function pixelTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingCont
     }
     return out;
   };
-  const plain = tint === STATUS && highlight === null && highlightTag === null && !stale
-    && !appearance.wash;
+  const plain = highlight === null && highlightTag === null && !stale && !appearance.wash;
   const byState = compiled.states.map((s) => {
     const style = palette.states[s.key]!;
     return colorOf(style.border ?? style.fill, 0, 1);
   });
+  // A ramp has STEPS swatches, so a measure is a lookup, as `tintFor` would draw it.
+  const measured = plain && tint !== STATUS ? tintColumn(facts, tint) : null;
+  const swatches = Array.from({ length: STEPS }, (_, s) => colorOf(ramp(s / (STEPS - 1), gradient), 0, 1));
+  const unmatched = colorOf(palette.unmatched.fill, 0, 1);
 
   for (const { block, c0, c1, r0, r1 } of visibleSpans(laid, view, { width: TILE_PX, height: TILE_PX })) {
     for (let r = r0; r <= r1; r++) {
@@ -127,7 +130,11 @@ function pixelTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingCont
         if (i >= block.count) break;
         const row = laid.order[block.start + i]!;
         let color: number[];
-        if (plain) {
+        if (measured) {
+          const t = measured[row]!;
+          color = Number.isNaN(t) ? unmatched
+            : swatches[Math.round(Math.max(0, Math.min(1, t)) * (STEPS - 1))]!;
+        } else if (plain) {
           color = byState[facts.state[row]!]!;
         } else {
           const state = compiled.states[facts.state[row]!]!;

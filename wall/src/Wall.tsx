@@ -33,6 +33,9 @@ export const DEFAULT_DRAG_THRESHOLD_PX = 4;
 export const MAX_DRAWN_CELLS = 50_000;
 /** How long a frame may spend rendering tiles before it draws what it has. */
 const TILE_BUDGET_MS = 10;
+/** A performance mark set the first time the wall is fully drawn for a given
+ *  set of items, selection and colors, so a bench can time it. */
+export const COMPLETE_MARK = 'pezlie:complete';
 
 export interface WallProps<T extends Item> {
   compiled: CompiledSpec<T>;
@@ -161,6 +164,12 @@ export function Wall<T extends Item>({
   }
   // Bumped to draw again while tiles are still rendering.
   const [frame, setFrame] = useState(0);
+  const marked = useRef<object | null>(null);
+  const markComplete = () => {
+    if (marked.current === tileScene) return;
+    marked.current = tileScene;
+    performance.mark(COMPLETE_MARK);
+  };
 
   const loupeCapability = useMemo(() => resolveLoupe(true), []);
   const loupe = useLoupe({ capability: loupeCapability, hostRef: ref, enabled: false });
@@ -261,9 +270,11 @@ export function Wall<T extends Item>({
         const id = requestAnimationFrame(() => setFrame((f) => f + 1));
         return () => cancelAnimationFrame(id);
       }
+      markComplete();
       return;
     }
     for (const cmd of cmds) drawPaintCommand(ctx, cmd, sheet, palette, options);
+    markComplete();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compiled, facts, laid, rectOf, visible, cam, sheet, manifest, palette, loose, vector,
       highlight, highlightTag, caretDrawn, appearance, tint, gradient, stale, ground,

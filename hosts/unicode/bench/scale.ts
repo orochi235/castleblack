@@ -1,25 +1,25 @@
 /** What each stage of the wall costs over the Unicode feed at three sizes.
  *
- *    npx vite-node bench/scale.ts [path/to/codepoints.arrow]
+ *    npx vite-node bench/scale.ts [out/codepoints.arrow]      # in hosts/unicode/
  *
  *  One line per stage as it finishes. The browser's own numbers, first paint
  *  and frame rate included, come from `hosts/unicode/bench/browser.mjs`.
  */
 import { readFileSync } from 'node:fs';
 import { tableFromIPC } from 'apache-arrow';
-import { UNICODE, type CodePoint } from '../../hosts/unicode/src/spec';
-import { compile } from '../src/cel';
-import { derive, tintColumn } from '../src/derive';
-import { DEFAULT_WASH } from '../src/draw2d';
-import { bandedLayout, blockLayout } from '../src/grouped';
-import { gridLayout, visibleCount } from '../src/layout';
-import { DEFAULT_APPEARANCE } from '../src/paint';
-import { defaultPalette } from '../src/palette';
-import { applySelection, sortOrder } from '../src/select';
-import { storeFromArrow } from '../src/store';
-import { coveringTiles, renderTile } from '../src/tiles';
+import { UNICODE, type CodePoint } from '../src/spec';
+import { compile } from '@pezlie/wall/src/cel';
+import { derive, tintColumn } from '@pezlie/wall/src/derive';
+import { DEFAULT_WASH } from '@pezlie/wall/src/draw2d';
+import { bandedLayout, blockLayout } from '@pezlie/wall/src/grouped';
+import { gridLayout, visibleCount } from '@pezlie/wall/src/layout';
+import { DEFAULT_APPEARANCE } from '@pezlie/wall/src/paint';
+import { defaultPalette } from '@pezlie/wall/src/palette';
+import { applySelection, sortOrder } from '@pezlie/wall/src/select';
+import { storeFromArrow } from '@pezlie/wall/src/store';
+import { coveringTiles, renderTile } from '@pezlie/wall/src/tiles';
 
-const path = process.argv[2] ?? '../hosts/unicode/out/codepoints.arrow';
+const path = process.argv[2] ?? 'out/codepoints.arrow';
 const SIZES = [25_000, 250_000, 1_114_112];
 const bytes = readFileSync(path);
 const compiled = compile(UNICODE);

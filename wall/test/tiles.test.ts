@@ -8,7 +8,7 @@ import { defaultPalette } from '../src/palette';
 import {
   coveringTiles, TILE_PX, TileCache, tileKey, tileLevel, type TileScene, type TileSurface,
 } from '../src/tiles';
-import { STATUS } from '../src/tint';
+import { ramp, STATUS } from '../src/tint';
 import { SPEC, thing, type Thing } from './fixture';
 
 const compiled = compile(SPEC);
@@ -140,6 +140,19 @@ describe('TileCache', () => {
     expect(px(0, 0)).toEqual([...hex(broken.border!), 255]);
     expect(px(3, 1)).toEqual([...hex(idle.fill), 255]);
     expect(px(100, 100)[3]).toBe(0);
+  });
+
+  it('writes a measured tint as its ramp swatch, and no value as unmatched', () => {
+    const tinted = [thing('a', 0, { score: 10 }), thing('b', 1, { score: null })];
+    const s = { ...scene(tinted, 2, 8), tint: 'score' };
+    const { made, make } = surfaces();
+    new TileCache(s, make).draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
+    const image = (made[0]!.ctx as ReturnType<typeof fakeContext>).image!;
+    const px = (x: number) => Array.from(image.data.slice(x * 4, x * 4 + 3));
+    const rgb = (css: string) => css.match(/\d+/g)!.map(Number);
+    const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    expect(px(0)).toEqual(rgb(ramp(1)));
+    expect(px(2)).toEqual(hex(s.palette.unmatched.fill));
   });
 
   it('draws larger cells through paint, without badges or captions', () => {
