@@ -35,13 +35,13 @@ package is `pezlie-workspace`. The hosts still import the wall's source as
 `@pezlie/wall/src/*`, through a tsconfig path and a vite alias, the specifier
 brick-icons' lab aliases too.
 
-**`bakery` goes to PyPI as `pezlie` and imports as `pezlie`.** The demo
+**`bakery` is published on PyPI as `pezlie` and imports as `pezlie`.** The demo
 host's `pyproject.toml` names it `pezlie`.
 
 ## What is decided that the code does not say
 
 **The name is `pezlie`**, after the first person born tiny in *Solar
-Opposites*' wall. It is free on PyPI; the working name, `castleblack`, is a
+Opposites*' wall. It is ours on npm and PyPI; the working name, `castleblack`, is a
 parked npm package someone else owns. The GitHub repo and this directory were
 renamed from it, and GitHub redirects the old URL.
 
