@@ -26,12 +26,15 @@ above: the state table in `states.ts`, the sort, filter and class table in
 
 **The wall no longer draws with one loop.** `paintCommands` is still the
 boundary, but two executors now sit under it: `drawScene.ts` hands cell bodies
-to weasel's scene renderer (measured faster at every level), and `draw2d.ts`
-draws what weasel cannot — badges, the kind strip, captions, the caret, band
-labels, the category glyph and the sticker mark — on a 2D canvas stacked over
-it. `toDrawCommands.ts` maps one to the other. Both executors name two LEGO
-features, the sticker mark and the category glyph, plus `RETIRED_WASH`; those
-become host hooks.
+to weasel's scene renderer, and `draw2d.ts` draws what weasel cannot — badges,
+the kind strip, captions, the caret, band labels, the category glyph and the
+sticker mark — on a 2D canvas stacked over it. `toDrawCommands.ts` maps one to
+the other. The scene renderer measured faster than drawing every cell in
+Canvas2D, before far cells became tiles; since,
+`hosts/unicode/bench/browser.mjs --scene` shows no difference in frame times
+on a GPU, even under `--throttle 4`, and it stays off by default. Both
+executors name two LEGO features, the sticker mark and the category glyph,
+plus `RETIRED_WASH`; those become host hooks.
 
 The Python bake is lifted — see Bakery. The LEGO there lives entirely in
 `brick_icons/lab/cells.py`, which is SQL against the brick-icons schema and
