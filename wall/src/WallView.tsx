@@ -487,7 +487,11 @@ function WallViewBody<T extends Item>({
                   onPan={(next) => { touched.current = true; updateCam(next); }}
                   onPick={(row, at) => setCarded({ id: facts.store.id(row), row, at })}
                   onDragStart={() => setCarded(null)}
-                  onOpen={(row) => { setCarded(null); setOpenedRow(row); setOpened(facts.store.id(row)); }}
+                  onOpen={(row) => {
+                    // With no detail view to show, an open would only hide every card after it.
+                    if (!renderDetail) return;
+                    setCarded(null); setOpenedRow(row); setOpened(facts.store.id(row));
+                  }}
                   dragThresholdPx={params.dragThresholdPx} appearance={appearance}
                   stale={stale} pixelScale={pixelScale} sceneRenderer={params.sceneRenderer}
                   linkedBadges={linkedBadges}
@@ -504,12 +508,15 @@ function WallViewBody<T extends Item>({
               still showing <b>{drawnSlot}</b> while <b>{slot}</b> loads
             </p>
           )}
-          {cardItem && carded && !opened && renderCard && (
+          {cardItem && carded && !(opened && renderDetail) && renderCard && (
             <ItemCard at={carded.at} viewport={size} onClose={() => setCarded(null)}
                       onHoverChange={(over) => { overCard.current = over; }}>
               {renderCard(cardItem, drawnSlot, {
                 tint: selection.tint,
-                open: () => { setCarded(null); setOpenedRow(carded.row); setOpened(cardItem.id); },
+                open: () => {
+                  if (!renderDetail) return;
+                  setCarded(null); setOpenedRow(carded.row); setOpened(cardItem.id);
+                },
               })}
             </ItemCard>
           )}
