@@ -50,6 +50,15 @@ describe('clampWallView', () => {
   });
 });
 
+describe('clampWallView with no margin', () => {
+  it('stops a pan at the wall\'s own edges', () => {
+    const right = clampWallView({ x: 9999, y: 0, scale: { x: 1, y: 1 } }, BOUNDS, CANVAS, 0);
+    expect(right.x).toBeCloseTo(BOUNDS.w - CANVAS.width);
+    const left = clampWallView({ x: -9999, y: 0, scale: { x: 1, y: 1 } }, BOUNDS, CANVAS, 0);
+    expect(left.x).toBeCloseTo(0);
+  });
+});
+
 describe('sameView', () => {
   const view = { x: 3, y: 4, scale: { x: 2, y: 2 } };
 

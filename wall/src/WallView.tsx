@@ -297,7 +297,7 @@ function WallViewBody<T extends Item>({
   // Every camera write goes through this, inertia included.
   const updateCam = (next: View) => {
     const clamped = laid.bounds.w > 0 && size.width > 0 && size.height > 0
-      ? clampWallView(next, laid.bounds, size, blankPx) : next;
+      ? clampWallView(next, laid.bounds, size, compact ? 0 : blankPx) : next;
     // By value: a clamp builds a new object even when its numbers stand still.
     setCam((current) => (sameView(current, clamped) ? current : clamped));
   };

@@ -28,7 +28,8 @@ export function clampWallView(view: View, bounds: WallBounds, canvas: CanvasSize
                                blankPx = DEFAULT_BLANK_PX): View {
   const visW = Math.abs(canvas.width / view.scale.x);
   const visH = Math.abs(canvas.height / view.scale.y);
-  const blank = blankPx + BLANK_SLOP_PX;
+  // No panel, no margin: a wall with nothing floating over it stops at its edges.
+  const blank = blankPx > 0 ? blankPx + BLANK_SLOP_PX : 0;
   const blankW = blank / Math.abs(view.scale.x);
   const blankH = blank / Math.abs(view.scale.y);
   const marginX = Math.max(blankW, visW - bounds.w, 0);
