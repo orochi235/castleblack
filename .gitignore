@@ -11,4 +11,5 @@ hosts/unicode/.ucd/
 hosts/unicode/out/
 hosts/unicode/dist/
 wall/dist/
+bakery/dist/
 !docs/screenshots/*.png

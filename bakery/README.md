@@ -10,6 +10,7 @@ It knows nothing about what the items are. brick-icons is the first host.
 ```bash
 pip install pezlie
 pip install 'pezlie[routes]'  # with the FastAPI routes
+pip install 'pezlie[feed]'    # with pezlie.feed, which writes Arrow feeds
 ```
 
 It needs `resvg` on `PATH` for SVG renders. The wall that draws what it bakes is

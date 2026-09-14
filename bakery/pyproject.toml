@@ -1,6 +1,6 @@
 [project]
 name = "pezlie"
-version = "0.1.0"
+version = "0.2.0"
 description = "Bake per-item renders into a mip chain of sprite sheets, and serve them"
 readme = "README.md"
 license = "MIT"
