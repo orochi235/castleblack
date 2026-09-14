@@ -86,6 +86,14 @@ it('orders as a comparator over every item would, on random corpora', () => {
   }
 });
 
+it('orders a rising column without sorting, in both directions', () => {
+  const items = [thing('a', 0, { score: 1 }), thing('b', 1, { score: 4 }), thing('c', 2, { score: 9 })];
+  const facts = derive(compiled, items);
+  expect(Array.from(sortOrder(facts, 'score'))).toEqual([2, 1, 0]);
+  const asc = derive(compile({ ...SPEC, sorts: [{ key: 'score', label: 's', value: 'item.score', desc: false }] }), items);
+  expect(Array.from(sortOrder(asc, 'score'))).toEqual([0, 1, 2]);
+});
+
 it('sorts once per sort, whatever else the selection changes', () => {
   const items = Array.from({ length: 20 }, (_, i) => thing(`t${i}`, i, { score: i % 4 }));
   const facts = derive(compiled, items);

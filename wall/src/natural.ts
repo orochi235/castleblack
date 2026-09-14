@@ -8,7 +8,10 @@
 
 const CHUNK = /\d+|\D+/g;
 
-function chunks(text: string): (string | number)[] {
+export type Chunks = (string | number)[];
+
+/** An id split into its digit and non-digit runs, digits read as numbers. */
+export function chunks(text: string): Chunks {
   return (text.match(CHUNK) ?? []).map((c) => (/^\d/.test(c) ? Number(c) : c));
 }
 
@@ -16,8 +19,12 @@ function chunks(text: string): (string | number)[] {
  *  the same position, which is what keeps `4100` ahead of `4100b`: the
  *  shorter id runs out of components first and sorts first. */
 export function naturalCompare(a: string, b: string): number {
-  const ca = chunks(a);
-  const cb = chunks(b);
+  return compareChunks(chunks(a), chunks(b));
+}
+
+/** `naturalCompare` over ids already split, for a sort that compares each id
+ *  many times. */
+export function compareChunks(ca: Chunks, cb: Chunks): number {
   for (let i = 0; i < Math.min(ca.length, cb.length); i += 1) {
     const x = ca[i]!;
     const y = cb[i]!;

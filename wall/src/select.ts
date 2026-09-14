@@ -1,6 +1,6 @@
 import type { CompiledSpec } from './cel';
 import { rowsByIndex, sortColumn, type Facts } from './derive';
-import { naturalCompare } from './natural';
+import { chunks, compareChunks, type Chunks } from './natural';
 import type { Item, TagAxis } from './schema';
 
 /** Which items are on the wall, and in what order. */
@@ -59,6 +59,15 @@ export function sortOrder<T extends Item>(facts: Facts<T>, key: string): Uint32A
 /** Ranks by a native numeric sort, which a comparator over a million
  *  distinct values is several times slower than. Nulls rank last. */
 function rankNumbers(values: readonly (number | null)[], desc: boolean): { rank: Int32Array; ranks: number } {
+  // A column already in order, like a code point, needs no sort at all.
+  let rising = true;
+  for (let i = 0; i < values.length && rising; i++) {
+    rising = !none(values[i]) && (i === 0 || values[i]! > values[i - 1]!);
+  }
+  if (rising) {
+    const n = values.length;
+    return { rank: Int32Array.from({ length: n }, (_, i) => (desc ? n - 1 - i : i)), ranks: n };
+  }
   const present = Float64Array.from(values.filter((v): v is number => !none(v)));
   present.sort();
   let distinct = 0;
@@ -81,13 +90,18 @@ function rankNumbers(values: readonly (number | null)[], desc: boolean): { rank:
 
 function rankValues(values: readonly unknown[], desc: boolean): { rank: Int32Array; ranks: number } {
   const dir = desc ? -1 : 1;
+  // Split once per value: re-splitting both strings on every comparison was
+  // most of the cost of sorting names.
+  const split = values.map((v) => (typeof v === 'string' ? chunks(v) : null));
   const byValue = Array.from(values.keys()).sort((a, b) => {
     const ka = values[a];
     const kb = values[b];
     if (none(ka)) return none(kb) ? 0 : 1;
     if (none(kb)) return -1;
     if (ka === kb) return 0;
-    if (typeof ka === 'string' && typeof kb === 'string') return naturalCompare(ka, kb) * dir;
+    if (typeof ka === 'string' && typeof kb === 'string') {
+      return compareChunks(split[a] as Chunks, split[b] as Chunks) * dir;
+    }
     return ((ka as number) < (kb as number) ? -1 : 1) * dir;
   });
   const rank = new Int32Array(values.length);

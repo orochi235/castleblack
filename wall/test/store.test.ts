@@ -81,6 +81,14 @@ describe('storeFromArrow', () => {
     expect(s.column('n').codes).toEqual(new Int32Array([0, 0]));
   });
 
+  it('codes a rising numeric column one row to a code, and a repeating one by value', () => {
+    const t = tableFromArrays({ id: ['a', 'b', 'c'], index: Int32Array.from([0, 1, 2]), sha: ['s', 't', 'u'],
+                                cp: Int32Array.from([5, 9, 40]), plane: Int8Array.from([0, 0, 1]) });
+    const s = storeFromArrow(t as never);
+    expect(s.column('cp')).toEqual({ codes: new Int32Array([0, 1, 2]), values: [5, 9, 40] });
+    expect(s.column('plane')).toEqual({ codes: new Int32Array([0, 0, 1]), values: [0, 1] });
+  });
+
   it('refuses a feed out of index order', () => {
     const t = tableFromArrays({ id: ['a', 'b'], index: Int32Array.from([1, 0]), sha: ['s', 't'] });
     expect(() => storeFromArrow(t as never)).toThrow(/index order/);

@@ -18,7 +18,8 @@ HERE = Path(__file__).parent
 COLLECTIONS = ("codepoints", "assigned")
 #: The one slot each collection has until fonts are rendered into it.
 SLOT = "ucd"
-DICTIONARY = ["kind", "gc", "block", "script", "age"]
+#: `name` too: most code points have none, and the wall decodes a dictionary once.
+DICTIONARY = ["kind", "gc", "block", "script", "age", "name"]
 TYPES = {"cp": pa.int32(), "plane": pa.int8(), "block_start": pa.int32()}
 
 
