@@ -79,7 +79,7 @@ export function Legend<T extends Item>({
   };
 
   return (
-    <FloatingPanel anchor="top-right" storageKey={storageKey} className="wall-legend">
+    <FloatingPanel anchor="top-right" persist={storageKey} className="wall-legend">
       <div className="wall-legend-head">
         <strong>Legend</strong>
         <button type="button" aria-label="Close legend" onClick={onClose}>x</button>
