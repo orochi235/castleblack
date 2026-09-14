@@ -88,7 +88,8 @@ export function rectAt(laid: Laid, position: number): Rect | undefined {
            w: laid.cell, h: laid.cell };
 }
 
-/** The position whose cell holds the world point, gaps excluded. */
+/** The position whose cell holds the world point. A gap belongs to the cell
+ *  before it: at a few pixels a cell, the gaps are much of what gets clicked. */
 export function positionAt(laid: Laid, x: number, y: number): number | null {
   for (const b of laid.blocks) {
     const col = Math.floor((x - b.x) / laid.pitch);
@@ -96,7 +97,6 @@ export function positionAt(laid: Laid, x: number, y: number): number | null {
     if (col < 0 || row < 0 || col >= b.cols) continue;
     const i = row * b.cols + col;
     if (i >= b.count) continue;
-    if (x - b.x - col * laid.pitch > laid.cell || y - b.y - row * laid.pitch > laid.cell) continue;
     return b.start + i;
   }
   return null;

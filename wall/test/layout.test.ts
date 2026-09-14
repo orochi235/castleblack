@@ -64,11 +64,12 @@ describe('visiblePositions', () => {
 describe('positionAt', () => {
   const laid = grid(5, 2);
 
-  it('finds the cell under a world point, and nothing in a gap or past the end', () => {
+  it('finds the cell under a world point, counts a gap with the cell before it, and nothing past the end', () => {
     expect(positionAt(laid, 3, 3)).toBe(0);
     expect(positionAt(laid, 13, 14)).toBe(3);
-    expect(positionAt(laid, 11, 3)).toBeNull();
+    expect(positionAt(laid, 11, 3)).toBe(0);
     expect(positionAt(laid, 13, 26)).toBeNull();
     expect(positionAt(laid, -1, 3)).toBeNull();
+    expect(positionAt(laid, 25, 3)).toBeNull();
   });
 });
