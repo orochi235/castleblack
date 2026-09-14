@@ -7,6 +7,14 @@ JSON manifest beside each sheet.
 
 It knows nothing about what the items are. brick-icons is the first host.
 
+```bash
+pip install pezlie            # imports as `bakery`
+pip install 'pezlie[routes]'  # with the FastAPI routes
+```
+
+It needs `resvg` on `PATH` for SVG renders. The wall that draws what it bakes is
+[`pezlie` on npm](https://www.npmjs.com/package/pezlie).
+
 ## What a host supplies
 
 - **The renders for a slot** — `Render(id, path, sha)` per item that has one.

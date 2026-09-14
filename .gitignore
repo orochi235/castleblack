@@ -9,3 +9,4 @@ node_modules/
 hosts/demo/.venv/
 hosts/demo/out/
 wall/dist/
+!docs/screenshots/*.png

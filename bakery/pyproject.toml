@@ -1,9 +1,16 @@
 [project]
-name = "bakery"
+name = "pezlie"
 version = "0.1.0"
 description = "Bake per-item renders into a mip chain of sprite sheets, and serve them"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "orochi235" }]
 requires-python = ">=3.11"
 dependencies = ["pillow>=10"]
+
+[project.urls]
+Repository = "https://github.com/orochi235/pezlie"
 
 [project.optional-dependencies]
 routes = ["fastapi>=0.110"]

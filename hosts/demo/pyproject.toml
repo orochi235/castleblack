@@ -3,13 +3,13 @@ name = "pezlie-demo"
 version = "0.1.0"
 description = "A generated corpus that drives bakery and the wall end to end"
 requires-python = ">=3.11"
-dependencies = ["bakery[routes]", "fastapi>=0.110", "uvicorn>=0.30"]
+dependencies = ["pezlie[routes]", "fastapi>=0.110", "uvicorn>=0.30"]
 
 [project.optional-dependencies]
 test = ["pytest>=8", "httpx>=0.27"]
 
 [tool.uv.sources]
-bakery = { path = "../../bakery", editable = true }
+pezlie = { path = "../../bakery", editable = true }
 
 [build-system]
 requires = ["hatchling"]
