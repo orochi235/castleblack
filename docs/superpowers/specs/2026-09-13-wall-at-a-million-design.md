@@ -51,7 +51,7 @@ buffers; it never builds an object per item.
 
 - **Python:** `bakery` gains `pezlie.feed`, which writes a table with `pyarrow`.
 - **JS:** `apache-arrow` (21.2.0) decodes it.
-- **Small hosts keep objects.** `columnsFromItems(items)` builds the same column
+- **Small hosts keep objects.** `storeFromItems(items)` builds the same column
   store from `T[]`, so a host with tens of thousands of items can go on sending
   JSON. brick-icons' parity tests use this path.
 - **Poll deltas** arrive as a table of changed rows and are applied by `index`.
@@ -72,7 +72,7 @@ ungroupable.
 
 `derive` then groups rows by the codes of an expression's fields and runs the
 expression once per distinct group, writing the result to every row in it. For
-Unicode the states read only `kind`, so they cost five evaluations. An
+Unicode the states read only `kind` and the general category, so they cost a few dozen evaluations. An
 ungroupable expression, or one whose fields have nearly as many distinct values
 as rows (brick-icons' `item.secs > 60`), runs once per row on the main thread;
 nothing measured has needed a worker. A value that is nothing but a field read
@@ -84,7 +84,7 @@ fields. One of these without `reads` is a spec error. Caption, glyph and mark
 hooks need no `reads`: they run for visible rows only and get the whole item.
 
 Results are typed columns: the state as a `Uint8Array` of state codes, each
-filter and class as a bit array, each facet as codes into its value list.
+filter and class as a `Uint8Array`, each facet as codes into its value list.
 
 ### Selection without re-sorting
 
@@ -97,7 +97,7 @@ order; brick-icons' test cells are now numbered in id order, which is how a
 feed composes them, and its parity tests pass.
 
 A filter, class, facet or tag change is then one linear pass over the cached
-order, writing the rows it keeps into a reused `Uint32Array`.
+order, writing the rows it keeps into a new `Uint32Array`.
 
 ### Layout as blocks
 
@@ -125,8 +125,7 @@ draws from world-space tiles instead of cells:
   `ImageData`: each cell a run of its state's border color, else its fill, or
   its tint swatch. Above that a tile is `paint`'s commands for its cells, drawn
   from the sheets, with badges and captions left off.
-- A cache of tiles is evicted least recently used, with its size in the params
-  panel.
+- A cache of 128 tiles is evicted least recently used.
 - The caret and band labels draw over the tiles each frame, as they do now.
 
 At and above `BADGE_MIN_PX` so few cells fit on screen that they draw one by
@@ -139,23 +138,23 @@ for that one row.
 `hosts/unicode/` replaces `hosts/demo/`, which is deleted.
 
 - **Data:** the Unicode 17.0.0 UCD files (`UnicodeData.txt`, `Blocks.txt`,
-  `Scripts.txt`, `DerivedAge.txt`, `PropList.txt`), downloaded once into a
+  `Scripts.txt`, `DerivedAge.txt`), downloaded once into a
   gitignored cache and checked against pinned sha256 sums.
 - **Items:** `id` `U+XXXX`, `index` (in `codepoints`, the code point), `sha` null, and
   `kind` (`assigned`, `unassigned`, `private`, `surrogate`, `noncharacter`),
-  general category, block, script, age, plane and name.
+  general category, block and its first code point, script, age, plane and name.
 - **Collections:** one generator pass writes `codepoints` (1,114,112 items) and
   `assigned` (every code point whose `kind` is `assigned`, re-indexed from 0).
-  Each has a single slot, baked from no renders, so every sheet is empty.
-- **Server:** one FastAPI app mounts each collection's feed, slots and sheet
-  routes under `/api/<collection>/`.
+  Each has a single slot with nothing rendered and no sheets.
+- **Server:** one FastAPI app serves each collection's feed and slots under
+  `/api/<collection>/`, gzipping each feed once.
 - **Page:** a collection picker in the `WallView` header, held in the hash
   (`#codepoints`, `#assigned`). Switching remounts `WallView` with that
   collection's spec, URLs and `storageKey`.
 
 ### Measurement
 
-- **`wall/bench/scale.ts`** times decode, derive, sort, select, layout and one
+- **`hosts/unicode/bench/scale.ts`** times decode, derive, sort, select, layout and one
   full-wall tile render over the Unicode table at 25k, 250k and 1,114,112 rows,
   printing each stage as it finishes (`3/18  derive  1114112  41.2 ms`).
 - **`hosts/unicode/bench/browser.mjs`** drives headless Chromium through

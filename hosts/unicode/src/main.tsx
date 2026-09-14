@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { tableFromIPC } from 'apache-arrow';
+import { Persistence } from '@weasel-js/labkit';
 import '@weasel-js/labkit/styles.css';
 import { bandedLayout, blockLayout, type GroupKey } from '@pezlie/wall/src/grouped';
 import { defaultUrls } from '@pezlie/wall/src/urls';
@@ -95,4 +96,8 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <Persistence storageKey="pezlie-unicode"><App /></Persistence>
+  </StrictMode>,
+);

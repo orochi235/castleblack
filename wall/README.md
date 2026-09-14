@@ -57,6 +57,9 @@ what a million items needs. `bakery`'s `pezlie.feed` writes one.
   missing hook together, and throws `SpecError`. `WallView` shows the list in
   place of the wall.
 - **Pass stable fetchers and URLs.** The loaders refetch when they change.
+- **Mount the page under a labkit `<Persistence>` or `<Lab>`.** The legend
+  remembers where it was dragged only beneath one; without it the position
+  resets on reload.
 
 ## Use
 
