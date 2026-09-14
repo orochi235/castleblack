@@ -107,6 +107,7 @@ export function Wall<T extends Item>({
   const ref = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
   const painterRef = useRef<{ painter: SceneWallPainter; gl: HTMLCanvasElement } | null>(null);
+  const glClearRef = useRef(false);
   const [sheetBitmap, setSheetBitmap] = useState<ImageBitmap | null>(null);
   const [dragging, setDragging] = useState(false);
   const decay = useDecayLoop();
@@ -247,11 +248,17 @@ export function Wall<T extends Item>({
         painterRef.current = { painter: scenePainter(gl, canvas), gl };
       }
       // A tiled wall is past the cells `visible` will list, so it draws below
-      // as tiles; the empty paint clears the GL layer they would show it through.
-      painterRef.current.painter.paint(cmds, { width, height, dpr },
-                                       { bitmap: sheetBitmap, img: sheet }, palette, options,
-                                       'linear');
-      if (!tiled) return;
+      // as tiles; one empty paint clears the GL layer they would show through.
+      if (!tiled || !glClearRef.current) {
+        painterRef.current.painter.paint(cmds, { width, height, dpr },
+                                         { bitmap: sheetBitmap, img: sheet }, palette, options,
+                                         'linear');
+      }
+      glClearRef.current = tiled;
+      if (!tiled) {
+        markComplete();
+        return;
+      }
     }
 
     canvas.width = Math.round(width * dpr);
