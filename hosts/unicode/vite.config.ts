@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: { alias: { '@pezlie/wall': resolve(import.meta.dirname, '../../wall') } },
   server: {
     host: '::',
-    port: 5195,
-    proxy: { '/api': 'http://127.0.0.1:8795' },
+    port: 5196,
+    proxy: { '/api': 'http://127.0.0.1:8796' },
   },
 });

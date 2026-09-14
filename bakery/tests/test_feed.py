@@ -19,7 +19,13 @@ def test_rows_go_in_index_order():
 def test_dictionary_columns_are_encoded():
     t = table(cols(kind=["q", "q", "r"]), dictionary=["kind"])
     assert pa.types.is_dictionary(t.column("kind").type)
+    assert t.column("kind").type.index_type == pa.int8()
     assert t.column("kind").to_pylist() == ["q", "q", "r"]
+
+
+def test_types_name_a_column_type():
+    t = table(cols(n=[1, 2, 3]), types={"n": pa.int16()})
+    assert t.column("n").type == pa.int16()
 
 
 def test_indices_must_cover_every_row_once():

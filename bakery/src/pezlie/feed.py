@@ -17,11 +17,22 @@ import pyarrow.ipc as ipc
 MEDIA_TYPE = "application/vnd.apache.arrow.stream"
 
 
-def table(columns: Mapping[str, Sequence], dictionary: Iterable[str] = ()) -> pa.Table:
-    """The columns as a table, `dictionary` columns dictionary-encoded.
+def _narrow(arr: pa.DictionaryArray) -> pa.DictionaryArray:
+    """Indices as narrow as the dictionary allows: a million rows of int32
+    codes is 4 MB a column, most of it zeros."""
+    n = len(arr.dictionary)
+    width = pa.int8() if n <= 127 else pa.int16() if n <= 32767 else pa.int32()
+    return pa.DictionaryArray.from_arrays(arr.indices.cast(width), arr.dictionary)
+
+
+def table(columns: Mapping[str, Sequence], dictionary: Iterable[str] = (),
+          types: Mapping[str, pa.DataType] | None = None) -> pa.Table:
+    """The columns as a table, `dictionary` columns dictionary-encoded and
+    `types` naming any column's Arrow type.
 
     `id`, `index` and `sha` are required; `index` must be exactly 0..n-1.
     """
+    types = dict(types or {})
     for name in ("id", "index", "sha"):
         if name not in columns:
             raise ValueError(f"a feed needs an {name!r} column")
@@ -41,8 +52,8 @@ def table(columns: Mapping[str, Sequence], dictionary: Iterable[str] = ()) -> pa
         elif name in ("id", "sha"):
             arr = pa.array(ordered, pa.string())
         else:
-            arr = pa.array(ordered)
-        arrays[name] = arr.dictionary_encode() if name in encoded else arr
+            arr = pa.array(ordered, types.get(name))
+        arrays[name] = _narrow(arr.dictionary_encode()) if name in encoded else arr
     return pa.table(arrays)
 
 
@@ -54,7 +65,8 @@ def to_bytes(t: pa.Table) -> bytes:
 
 
 def write_table(path: Path | str, columns: Mapping[str, Sequence],
-                dictionary: Iterable[str] = ()) -> pa.Table:
-    t = table(columns, dictionary)
+                dictionary: Iterable[str] = (),
+                types: Mapping[str, pa.DataType] | None = None) -> pa.Table:
+    t = table(columns, dictionary, types)
     Path(path).write_bytes(to_bytes(t))
     return t

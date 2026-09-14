@@ -10,6 +10,8 @@ export const UNKNOWN_GROUP = 'unknown';
 export interface GroupKey<T> {
   reads: readonly string[];
   of: (item: T) => string;
+  /** What a group's band says, where the key is shaped for sorting. */
+  label?: (key: string) => string;
 }
 
 export interface Group { key: string; label?: string; count: number }
@@ -136,7 +138,7 @@ export function blockLayout<T extends Item>(key: GroupKey<T>, order: string[]): 
     const rankOf = new Map(all.map((k, i) => [k, i]));
     const rank = Int32Array.from(names, (k) => rankOf.get(k)!);
     const { order: laid, counts } = regroup(input.rows, along, rank, all.length);
-    const groups = all.map((k, i) => ({ key: k, count: counts[i]! }));
+    const groups = all.map((k, i) => ({ key: k, label: key.label?.(k), count: counts[i]! }));
     const { blocks, bands } = flowBlocks(groups, opts, 0, OUTER_HEADER_ROWS, 0);
     return { order: laid, blocks, bands, bounds: boundsOf(blocks, bands, opts),
              cell: opts.cell, pitch: opts.cell + opts.gap };
@@ -191,7 +193,8 @@ export function bandedLayout<T extends Item>(outer: GroupKey<T>, inner: GroupKey
       const inside: Group[] = [];
       while (at < sortedPairs.length
              && Math.floor(sortedPairs[at]![0] / innerNames.length) === outerAt) {
-        inside.push({ key: innerNames[sortedPairs[at]![0] % innerNames.length]!, count: counts[at]! });
+        const name = innerNames[sortedPairs[at]![0] % innerNames.length]!;
+        inside.push({ key: name, label: inner.label?.(name), count: counts[at]! });
         at++;
       }
       const total = inside.reduce((sum, g) => sum + g.count, 0);
@@ -199,7 +202,7 @@ export function bandedLayout<T extends Item>(outer: GroupKey<T>, inner: GroupKey
       const flowed = flowBlocks(inside, opts, top, INNER_HEADER_ROWS, 1, start);
       const h = OUTER_HEADER_ROWS * pitch + flowed.height;
       const key = outerNames[outerAt]!;
-      bands.push({ key, label: key, count: total,
+      bands.push({ key, label: outer.label?.(key) ?? key, count: total,
                    rect: { x: 0, y, w: opts.cols * pitch - opts.gap, h },
                    depth: 0, header: OUTER_HEADER_ROWS * pitch });
       bands.push(...flowed.bands);

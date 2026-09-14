@@ -53,6 +53,13 @@ def test_known_code_points(out, cp, kind, gc, script, age, name):
     assert got["plane"] == cp >> 16 and got["sha"] is None
 
 
+def test_blocks_carry_their_first_code_point(out):
+    t = read(out, "codepoints")
+    assert (row(t, 0x41)["block"], row(t, 0x41)["block_start"]) == ("Basic Latin", 0)
+    assert (row(t, 0x0378)["block"], row(t, 0x0378)["block_start"]) == ("Greek and Coptic", 0x370)
+    assert (row(t, 0x2FE0)["block"], row(t, 0x2FE0)["block_start"]) == ("No_Block", None)
+
+
 def test_names_agree_with_python_where_both_know_the_character(db):
     for cp in range(0x110000):
         name = unicodedata.name(chr(cp), "")

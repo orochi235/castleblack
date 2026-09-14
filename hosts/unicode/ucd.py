@@ -75,6 +75,8 @@ class Database:
     gc: list[str]
     name: list[str]
     block: list[str]
+    #: The first code point of the block holding each code point, or None.
+    block_start: list[int | None]
     script: list[str]
     age: list[str | None]
 
@@ -116,6 +118,11 @@ def parse(cache: Path) -> Database:
             out[first:last + 1] = [value] * (last - first + 1)
         return out
 
+    block_start: list[int | None] = [None] * CODE_POINTS
+    for first, last, _ in _ranges(cache / "Blocks.txt"):
+        block_start[first:last + 1] = [first] * (last - first + 1)
+
     return Database(gc=gc, name=name, block=spread("Blocks.txt", "No_Block"),
+                    block_start=block_start,
                     script=spread("Scripts.txt", "Unknown"),
                     age=spread("DerivedAge.txt", None))

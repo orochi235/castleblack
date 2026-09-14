@@ -9,6 +9,7 @@ import json
 import time
 from pathlib import Path
 
+import pyarrow as pa
 from pezlie.feed import write_table
 
 import ucd
@@ -18,6 +19,7 @@ COLLECTIONS = ("codepoints", "assigned")
 #: The one slot each collection has until fonts are rendered into it.
 SLOT = "ucd"
 DICTIONARY = ["kind", "gc", "block", "script", "age"]
+TYPES = {"cp": pa.int32(), "plane": pa.int8(), "block_start": pa.int32()}
 
 
 def columns(db: ucd.Database, keep=None) -> dict[str, list]:
@@ -30,6 +32,7 @@ def columns(db: ucd.Database, keep=None) -> dict[str, list]:
         "kind": [db.kind(cp) for cp in cps],
         "gc": [db.gc[cp] for cp in cps],
         "block": [db.block[cp] for cp in cps],
+        "block_start": [db.block_start[cp] for cp in cps],
         "script": [db.script[cp] for cp in cps],
         "age": [db.age[cp] for cp in cps],
         "plane": [cp >> 16 for cp in cps],
@@ -47,7 +50,7 @@ def make(out: Path, cache: Path = HERE / ".ucd") -> dict[str, int]:
             [("codepoints", None), ("assigned", lambda cp: db.kind(cp) == "assigned")], 2):
         t0 = time.perf_counter()
         cols = columns(db, keep)
-        write_table(out / f"{collection}.arrow", cols, dictionary=DICTIONARY)
+        write_table(out / f"{collection}.arrow", cols, dictionary=DICTIONARY, types=TYPES)
         counts[collection] = len(cols["id"])
         print(f"  {i}/3 wrote {collection}.arrow, {counts[collection]:>9,} rows "
               f"in {time.perf_counter() - t0:5.1f} s")

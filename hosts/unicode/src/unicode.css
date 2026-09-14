@@ -1,0 +1,28 @@
+html, body, #root { height: 100%; }
+
+.unicode-collection { display: flex; gap: 0.4rem; align-items: center; }
+
+.unicode-card { display: flex; gap: 0.75rem; font: 13px/1.4 ui-sans-serif, system-ui, sans-serif; }
+
+.unicode-card__glyph {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  font-size: 56px;
+  line-height: 1;
+  border-radius: 6px;
+  background: var(--wzl-bg-subtle, #22252c);
+}
+
+.unicode-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.6rem;
+  margin: 0;
+}
+
+.unicode-card dt { color: var(--wzl-fg-muted); }
+
+.unicode-card dd { margin: 0; font-variant-numeric: tabular-nums; }

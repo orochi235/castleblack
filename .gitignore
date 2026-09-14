@@ -6,8 +6,6 @@ spike/cel/results.*.json
 bakery/.venv/
 __pycache__/
 node_modules/
-hosts/demo/.venv/
-hosts/demo/out/
 hosts/unicode/.venv/
 hosts/unicode/.ucd/
 hosts/unicode/out/

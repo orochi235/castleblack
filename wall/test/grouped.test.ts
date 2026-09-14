@@ -137,3 +137,12 @@ describe('bandedLayout', () => {
     expect(laid.bounds.h).toBeGreaterThanOrEqual(lowest);
   });
 });
+
+describe('group labels', () => {
+  it('sorts by the key and says the label', () => {
+    const items = [r('a', 0, { year: 2011 }), r('b', 1, { year: 1974 })];
+    const key: GroupKey<Row> = { reads: ['year'], of: (x) => String(x.year), label: (k) => `year ${k}` };
+    const laid = lay(items, blockLayout(key, []));
+    expect(laid.bands.map((b) => [b.key, b.label])).toEqual([['1974', 'year 1974'], ['2011', 'year 2011']]);
+  });
+});

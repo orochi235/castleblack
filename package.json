@@ -4,7 +4,6 @@
   "workspaces": [
     "wall",
     "hosts/brick-icons",
-    "hosts/demo",
     "hosts/unicode"
   ],
   "scripts": {
