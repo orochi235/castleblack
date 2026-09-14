@@ -6,7 +6,7 @@ import { gridLayout } from '../src/layout';
 import { DEFAULT_APPEARANCE } from '../src/paint';
 import { defaultPalette } from '../src/palette';
 import {
-  coveringTiles, TILE_PX, TileCache, tileKey, tileLevel, type TileScene, type TileSurface,
+  coveringTiles, FADE_MS, TILE_PX, TileCache, tileKey, tileLevel, type TileScene, type TileSurface,
 } from '../src/tiles';
 import { ramp, STATUS } from '../src/tint';
 import { SPEC, thing, type Thing } from './fixture';
@@ -78,7 +78,7 @@ describe('TileCache', () => {
     const cache = new TileCache(scene(items, 1, 8), make);
     let t = 0;
     const done = cache.draw(fakeContext(), cam(-512, -512, 1), { width: 1536, height: 1536 }, 1, 10, () => (t += 6));
-    expect(done).toBe(false);
+    expect(done.complete).toBe(false);
     expect(made.length).toBe(2);
     expect(cache.has(tileKey(0, 0, 0))).toBe(true);
   });
@@ -87,9 +87,9 @@ describe('TileCache', () => {
     const { made, make } = surfaces();
     const cache = new TileCache(scene(items, 1, 8), make);
     const view = cam(0, 0, 1);
-    expect(cache.draw(fakeContext(), view, { width: 512, height: 512 }, 1, 1000)).toBe(true);
+    expect(cache.draw(fakeContext(), view, { width: 512, height: 512 }, 1, 1000).complete).toBe(true);
     const before = made.length;
-    expect(cache.draw(fakeContext(), view, { width: 512, height: 512 }, 1, 1000)).toBe(true);
+    expect(cache.draw(fakeContext(), view, { width: 512, height: 512 }, 1, 1000).complete).toBe(true);
     expect(made.length).toBe(before);
   });
 
@@ -112,7 +112,7 @@ describe('TileCache', () => {
     const next = new TileCache(scene(items, 1, 8), make, old);
     const ctx = fakeContext();
     let t = 0;
-    expect(next.draw(ctx, cam(0, 0, 1), { width: 1024, height: 512 }, 1, 0, () => (t += 1))).toBe(false);
+    expect(next.draw(ctx, cam(0, 0, 1), { width: 1024, height: 512 }, 1, 0, () => (t += 1)).complete).toBe(false);
     const drawn = ctx.calls.filter(([name]) => name === 'drawImage').map(([, args]) => args[0]);
     expect(drawn).toContain(old.peek(tileKey(0, 1, 0))!.canvas);
   });
@@ -163,5 +163,61 @@ describe('TileCache', () => {
     expect(names).toContain('fillRect');
     expect(names).not.toContain('putImageData');
     expect(names).not.toContain('fillText');
+  });
+
+  it('fades a new tile in over what stood in for it, and says so until it is done', () => {
+    const { make } = surfaces();
+    const old = new TileCache(scene(items, 1, 8), make);
+    old.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
+    const next = new TileCache(scene(items, 1, 8), make, old);
+    let t = 1000;
+    const ctx = fakeContext();
+    const frame = next.draw(ctx, cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000, () => t);
+    expect(frame).toEqual({ complete: true, animating: true });
+    const drawn = ctx.calls.filter(([name]) => name === 'drawImage').map(([, args]) => args[0]);
+    expect(drawn[0]).toBe(old.peek(tileKey(0, 0, 0))!.canvas);
+    t += FADE_MS;
+    expect(next.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000, () => t))
+      .toEqual({ complete: true, animating: false });
+  });
+
+  it('stands in with the finer tiles it holds when zooming out', () => {
+    const { make } = surfaces();
+    const cache = new TileCache(scene(items, 1, 8), make);
+    cache.draw(fakeContext(), cam(0, 0, 1), { width: 1024, height: 1024 }, 1, 1000);
+    const ctx = fakeContext();
+    let t = 0;
+    // The floor renders first and uses the only render this frame allows.
+    cache.draw(ctx, cam(0, 0, 0.5), { width: 1024, height: 512 }, 1, 0, () => (t += 1));
+    const quarters = ctx.calls.filter(([name, args]) => name === 'drawImage' && args.length === 5
+      && (args[3] as number) === TILE_PX / 2);
+    expect(quarters.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('keeps the floor level, which holds the whole wall, past the eviction limit', () => {
+    const { make } = surfaces();
+    // 8 cells of 32 is 256 wide, which two tiles a side at level 2 hold.
+    const cache = new TileCache(scene(items, 32, 8), make, null, 1);
+    cache.draw(fakeContext(), cam(0, 0, 16), { width: 512, height: 512 }, 1, 1000);
+    // A limit of one lets the view's own tile go and keeps the floor.
+    expect(cache.has(tileKey(2, 0, 0))).toBe(true);
+    expect(cache.size).toBe(1);
+  });
+
+  it('renders the ring just off screen with time left over', () => {
+    const { make } = surfaces();
+    const cache = new TileCache(scene(items, 1, 8), make);
+    cache.draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
+    expect(cache.has(tileKey(0, 1, 0))).toBe(true);
+    expect(cache.has(tileKey(0, -1, -1))).toBe(true);
+  });
+
+  it('writes borderless square cells below glyph size as pixels when there is no sheet', () => {
+    const s = scene(items.slice(0, 4), 12, 2);
+    const plain = { ...s, compiled: compile({ ...SPEC, states: SPEC.states.map((st) => ({ ...st, border: null, shape: 'square' as const, variants: undefined })), variants: [] }) };
+    plain.facts = derive(plain.compiled, items.slice(0, 4));
+    const { made, make } = surfaces();
+    new TileCache(plain, make).draw(fakeContext(), cam(0, 0, 1), { width: 512, height: 512 }, 1, 1000);
+    expect((made[0]!.ctx as ReturnType<typeof fakeContext>).image).toBeDefined();
   });
 });

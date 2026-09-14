@@ -10,6 +10,9 @@ hosts/unicode/.venv/
 hosts/unicode/.ucd/
 hosts/unicode/out/
 hosts/unicode/dist/
+hosts/emoji/.cache/
+hosts/emoji/public/emoji.json
+hosts/emoji/dist/
 wall/dist/
 bakery/dist/
 !docs/screenshots/*.png

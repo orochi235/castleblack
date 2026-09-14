@@ -24,16 +24,20 @@ column rewrite.
   feeds from UCD 17.0.0, a FastAPI server, the page, and `bench/` (the Arrow
   trial, per-stage `scale.ts`, and `browser.mjs`, the gates).
   `hosts/unicode/README.md` has the commands.
+- `hosts/emoji/` — all 3,944 emoji on a compact dark wall, static, deployed to
+  `https://michaelbaker.tech/pezlie/` by `.github/workflows/pages.yml` and
+  embedded as pezlie's portfolio tile.
 - `bakery/` — the Python package, now with `pezlie.feed` for Arrow feeds; its
   README has setup.
 - `scripts/brick-icons-bake-parity.py`, `spike/cel/`.
 
-The root is an npm workspace (`wall`, `hosts/brick-icons`, `hosts/unicode`):
+The root is an npm workspace (`wall`, `hosts/brick-icons`, `hosts/unicode`, `hosts/emoji`):
 `npm install` once at the root. `bakery/.venv` and `hosts/unicode/.venv` are
 gitignored and recreated from each README.
 
-**`wall` is published to npm as `pezlie` 0.1.0, which predates the column
-rewrite.** The hosts import the wall's source as `@pezlie/wall/src/*`, through a
+**`wall` is published to npm as `pezlie` 0.2.0**, the column rewrite.
+**`bakery` 0.2.0 is built but not yet on PyPI**; it uploads with the owner's
+token (`uv publish --token …`). The hosts import the wall's source as `@pezlie/wall/src/*`, through a
 tsconfig path and a vite alias, the specifier brick-icons' lab aliases too.
 
 **`bakery` is published on PyPI as `pezlie` and imports as `pezlie`.**
@@ -101,4 +105,7 @@ the work profile, not a failure.
 3. **Close the gaps between `/wall` and `/corpus`** in brick-icons (part search,
    the slot groups, the camera and caret in the hash), and adapt `/wall` to the
    column rewrite when its pin moves.
-4. **Publish the wall** once brick-icons is on the new API.
+4. **Tiles still pop in on a fast zoom.** They now fade in over a stand-in (the
+   previous scene, finer tiles, or a coarser one, with a whole-wall floor level
+   always kept) and the ring just off screen renders with spare frame time;
+   whether that is enough is the owner's call from using it.

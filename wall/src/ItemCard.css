@@ -6,7 +6,10 @@
   max-height: calc(100% - 16px);
   box-sizing: border-box;
   padding: 0.6rem 0.8rem;
-  background: var(--wzl-surface-raised);
+  /* Over the wall's own ground: a theme's raised surface can be translucent,
+   * and a busy wall reads straight through it. */
+  background: linear-gradient(var(--wzl-surface-raised), var(--wzl-surface-raised)),
+              var(--wzl-surface-sunken);
   color: var(--wzl-fg);
   border: var(--wzl-border-w) solid var(--wzl-border);
   border-radius: var(--wzl-radius-md);

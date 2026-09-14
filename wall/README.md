@@ -34,7 +34,9 @@ A `CorpusSpec` (`src/schema.ts`):
 
 For the page, `WallView` also takes the item and slot fetchers, a `SlotUrls`
 (`defaultUrls('/api')` matches `bakery`'s routes), groupings, a facet for the
-sidebar, and render props for the card and the detail view.
+sidebar, and render props for the card and the detail view. `compact` leaves
+only the wall and its card, for a page embedded somewhere small; `mode` fixes
+light or dark; `paramDefaults` sets what a first visit starts from.
 
 `fetchItems` answers with `{ items, version }` — objects, fine for tens of
 thousands — or `{ table, version }`, an Arrow table in index order, which is
@@ -105,4 +107,5 @@ npx tsc --noEmit
 `test/leak.test.ts` fails if a host's vocabulary appears anywhere in the
 package. `hosts/brick-icons/` proves brick-icons' spec draws what brick-icons
 drew; `hosts/unicode/` is a working page over every Unicode code point, and its
-`bench/` measures the wall at a million items.
+`bench/` measures the wall at a million items; `hosts/emoji/` is the compact
+wall the portfolio embeds.

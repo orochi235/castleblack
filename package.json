@@ -4,7 +4,8 @@
   "workspaces": [
     "wall",
     "hosts/brick-icons",
-    "hosts/unicode"
+    "hosts/unicode",
+    "hosts/emoji"
   ],
   "scripts": {
     "test": "npm test --workspaces",

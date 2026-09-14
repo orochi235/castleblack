@@ -3,7 +3,7 @@ import type { CompiledSpec } from './cel';
 import { tagsOf, tintColumn, type Facts } from './derive';
 import { drawPaintCommand, type DrawOptions } from './draw2d';
 import { rectAt, visiblePositions, visibleSpans, type Laid } from './layout';
-import { paintCommands, STALE_WASH, type Appearance } from './paint';
+import { GLYPH_MIN_PX, paintCommands, STALE_WASH, type Appearance } from './paint';
 import type { Palette } from './palette';
 import type { Item } from './schema';
 import type { SheetManifest } from './sheet';
@@ -18,6 +18,11 @@ export const MAX_TILES = 128;
 const LEVELS = { min: -20, max: 12 };
 /** How far down the pyramid a missing tile looks for something to stand in. */
 const FALLBACK_DEPTH = 8;
+/** How long a new tile takes to fade in over what stood in for it. */
+export const FADE_MS = 160;
+/** The coarsest level keeps the whole wall in at most this many tiles a side,
+ *  and is never evicted: whatever else is missing, it can stand in. */
+const FLOOR_TILES = 2;
 
 /** Everything that decides a tile's pixels except where it is. A new scene is
  *  a new cache: tiles are never patched. */
@@ -41,7 +46,13 @@ export interface TileScene<T extends Item> {
 export interface TileSurface {
   canvas: CanvasImageSource;
   ctx: CanvasRenderingContext2D;
+  /** When it was rendered, for its fade. Absent: no fade. */
+  bornAt?: number;
 }
+
+/** What a frame of tiles came to. `complete`: every tile drawn was this
+ *  scene's own. `animating`: a tile is still fading in, so draw again. */
+export interface TileFrame { complete: boolean; animating: boolean }
 export type MakeSurface = (px: number) => TileSurface;
 
 export interface TileRef { z: number; tx: number; ty: number; key: string; x: number; y: number; size: number }
@@ -167,12 +178,22 @@ function pixelTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingCont
   ctx.putImageData(img, 0, 0);
 }
 
+/** Whether a tile at this scale can be written as pixels without losing
+ *  anything `paint` would draw: tiny cells always; larger ones only when no
+ *  cell could have a picture, a border, a round shape or a glyph. */
+function drawnAsPixels<T extends Item>(scene: TileScene<T>, scale: number): boolean {
+  const px = scene.laid.cell * scale;
+  if (px < PIXEL_CELL_PX) return true;
+  return px < GLYPH_MIN_PX && !scene.manifest && !scene.sheet
+    && scene.compiled.states.every((s) => s.border === null && s.shape === 'square');
+}
+
 export function renderTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingContext2D,
                                            tile: TileRef): void {
   const scale = 2 ** tile.z;
   const view: View = { x: tile.x, y: tile.y, scale: { x: scale, y: scale } };
   ctx.clearRect(0, 0, TILE_PX, TILE_PX);
-  if (scene.laid.cell * scale < PIXEL_CELL_PX) {
+  if (drawnAsPixels(scene, scale)) {
     pixelTile(scene, ctx, view);
     return;
   }
@@ -219,35 +240,80 @@ export class TileCache<T extends Item> {
     return hit;
   }
 
-  render(tile: TileRef): TileSurface {
+  render(tile: TileRef, bornAt?: number): TileSurface {
     const surface = this.make(TILE_PX);
     renderTile(this.scene, surface.ctx, tile);
+    surface.bornAt = bornAt;
     this.#tiles.set(tile.key, surface);
-    while (this.#tiles.size > this.max) this.#tiles.delete(this.#tiles.keys().next().value!);
+    for (const key of this.#tiles.keys()) {
+      if (this.#tiles.size <= this.max) break;
+      if (!key.startsWith(`${this.#floor}/`)) this.#tiles.delete(key);
+    }
     return surface;
   }
 
-  /** Draws the tiles covering the view onto `ctx`, in CSS pixels. Renders the
-   *  missing ones nearest the center first until `budgetMs` has passed (always
-   *  at least one), standing in for the rest with a coarser tile or the
-   *  previous scene's. Returns whether every tile drawn was this scene's own. */
+  /** The level whose tiles hold the whole wall, `FLOOR_TILES` a side at most. */
+  get #floor(): number {
+    const { w, h } = this.scene.laid.bounds;
+    const span = Math.max(w, h, 1);
+    return Math.max(-20, Math.floor(Math.log2((TILE_PX * FLOOR_TILES) / span)));
+  }
+
+  /** Draws the tiles covering the view onto `ctx`, in CSS pixels.
+   *
+   *  Renders within `budgetMs` (always at least one tile): first the floor
+   *  tiles under the view, so something can always stand in; then the missing
+   *  tiles nearest the center; then, with time left, the ring just off screen,
+   *  so a pan finds them ready. A tile not yet rendered is stood in for by the
+   *  previous scene's, by the finer tiles already held, or by a coarser one;
+   *  a new tile fades in over its stand-in. */
   draw(ctx: CanvasRenderingContext2D, cam: View, viewport: { width: number; height: number },
-       dpr: number, budgetMs = 8, now: () => number = () => performance.now()): boolean {
+       dpr: number, budgetMs = 8, now: () => number = () => performance.now()): TileFrame {
     const start = now();
     const tiles = coveringTiles(cam, viewport, dpr);
+    const z = tiles[0]?.z ?? 0;
     const cx = cam.x + viewport.width / cam.scale.x / 2;
     const cy = cam.y + viewport.height / cam.scale.y / 2;
-    const missing = tiles.filter((t) => !this.#tiles.has(t.key)).sort((a, b) =>
+    const byCenter = (a: TileRef, b: TileRef) =>
       Math.hypot(a.x + a.size / 2 - cx, a.y + a.size / 2 - cy)
-      - Math.hypot(b.x + b.size / 2 - cx, b.y + b.size / 2 - cy));
+      - Math.hypot(b.x + b.size / 2 - cx, b.y + b.size / 2 - cy);
+
+    const floor = this.#floor;
+    const wanted: TileRef[] = [];
+    if (z > floor) {
+      const under = new Set<string>();
+      for (const t of tiles) {
+        const step = 2 ** (z - floor);
+        const f = ref(floor, Math.floor(t.tx / step), Math.floor(t.ty / step));
+        if (!under.has(f.key)) { under.add(f.key); wanted.push(f); }
+      }
+    }
+    wanted.push(...[...tiles].sort(byCenter));
+    const first = tiles.length > 0 ? tiles[0]! : null;
+    const last = tiles.length > 0 ? tiles[tiles.length - 1]! : null;
+    const ring: TileRef[] = [];
+    if (first && last) {
+      for (let ty = first.ty - 1; ty <= last.ty + 1; ty++) {
+        for (let tx = first.tx - 1; tx <= last.tx + 1; tx++) {
+          if (ty < first.ty || ty > last.ty || tx < first.tx || tx > last.tx) ring.push(ref(z, tx, ty));
+        }
+      }
+    }
+
     let rendered = 0;
-    for (const tile of missing) {
+    const fresh = this.#tiles.size > 0 || this.#previous !== null;
+    for (const tile of [...wanted, ...ring.sort(byCenter)]) {
+      if (this.#tiles.has(tile.key)) continue;
       if (rendered > 0 && now() - start >= budgetMs) break;
-      this.render(tile);
+      // The ring is only worth the time a frame has left over.
+      if (ring.includes(tile) && wanted.some((t) => !this.#tiles.has(t.key))) break;
+      this.render(tile, fresh || rendered > 0 ? now() : undefined);
       rendered++;
     }
 
     let complete = true;
+    let animating = false;
+    const t = now();
     ctx.imageSmoothingEnabled = true;
     for (const tile of tiles) {
       const dx = (tile.x - cam.x) * cam.scale.x;
@@ -255,28 +321,49 @@ export class TileCache<T extends Item> {
       const dw = tile.size * cam.scale.x;
       const dh = tile.size * cam.scale.y;
       const hit = this.#use(tile.key);
-      if (hit) { ctx.drawImage(hit.canvas, dx, dy, dw, dh); continue; }
-      complete = false;
+      if (!hit) {
+        complete = false;
+        this.#standIn(ctx, tile, dx, dy, dw, dh);
+        continue;
+      }
+      const age = hit.bornAt === undefined ? FADE_MS : t - hit.bornAt;
+      if (age >= FADE_MS) { ctx.drawImage(hit.canvas, dx, dy, dw, dh); continue; }
+      animating = true;
       this.#standIn(ctx, tile, dx, dy, dw, dh);
+      const alpha = ctx.globalAlpha;
+      ctx.globalAlpha = alpha * Math.max(0, age / FADE_MS);
+      ctx.drawImage(hit.canvas, dx, dy, dw, dh);
+      ctx.globalAlpha = alpha;
     }
-    return complete;
+    return { complete, animating };
+  }
+
+  #held(key: string): TileSurface | undefined {
+    return this.#tiles.get(key) ?? this.#previous?.peek(key);
   }
 
   #standIn(ctx: CanvasRenderingContext2D, tile: TileRef, dx: number, dy: number,
            dw: number, dh: number) {
     const before = this.#previous?.peek(tile.key);
     if (before) { ctx.drawImage(before.canvas, dx, dy, dw, dh); return; }
+    // Coarser first as the base, then any finer tiles over it: a zoom out
+    // holds the level below, a zoom in the level above.
     for (let k = 1; k <= FALLBACK_DEPTH; k++) {
       const step = 2 ** k;
       const px = Math.floor(tile.tx / step);
       const py = Math.floor(tile.ty / step);
-      const key = tileKey(tile.z - k, px, py);
-      const parent = this.#tiles.get(key) ?? this.#previous?.peek(key);
+      const parent = this.#held(tileKey(tile.z - k, px, py));
       if (!parent) continue;
       const sub = TILE_PX / step;
       ctx.drawImage(parent.canvas, (tile.tx - px * step) * sub, (tile.ty - py * step) * sub,
                     sub, sub, dx, dy, dw, dh);
-      return;
+      break;
+    }
+    for (let i = 0; i < 4; i++) {
+      const child = this.#held(tileKey(tile.z + 1, tile.tx * 2 + (i % 2), tile.ty * 2 + (i >> 1)));
+      if (child) {
+        ctx.drawImage(child.canvas, dx + (i % 2) * dw / 2, dy + (i >> 1) * dh / 2, dw / 2, dh / 2);
+      }
     }
   }
 }

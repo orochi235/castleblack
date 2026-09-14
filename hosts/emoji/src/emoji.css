@@ -1,0 +1,26 @@
+html, body, #root { height: 100%; }
+
+body { background: #16181d; }
+
+.emoji-card { display: flex; gap: 0.75rem; font: 13px/1.4 ui-sans-serif, system-ui, sans-serif; }
+
+.emoji-card__glyph {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  font-size: 52px;
+  line-height: 1;
+}
+
+.emoji-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.6rem;
+  margin: 0;
+}
+
+.emoji-card dt { color: var(--wzl-fg-muted); }
+
+.emoji-card dd { margin: 0; font-variant-numeric: tabular-nums; }

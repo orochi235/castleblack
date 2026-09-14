@@ -16,7 +16,7 @@ import { ItemCard } from './ItemCard';
 import { gridLayout, visibleCount, visiblePositions, type Layout } from './layout';
 import { Legend } from './Legend';
 import { levelFor, LOOSE_LEVEL, pickLevel, SHEET_LEVELS } from './levels';
-import { paramSchema } from './params';
+import { paramSchema, type Params } from './params';
 import { BADGE_MIN_PX, type Appearance } from './paint';
 import type { CorpusSpec, Item } from './schema';
 import { applySelection } from './select';
@@ -91,6 +91,14 @@ export interface WallViewProps<T extends Item> {
   initial?: { slot?: string; selection?: Partial<SidebarSelection>; opened?: string | null };
   /** Everything a host would put in an address bar, whenever it changes. */
   onChange?: (state: WallViewState) => void;
+  /** Just the wall and its card: no header, sidebar or legend. For a page
+   *  embedded somewhere too small for the chrome. */
+  compact?: boolean;
+  /** The color mode; by default the viewer's. */
+  mode?: ComponentProps<typeof LabShell>['mode'];
+  /** Params a first visit starts from, before anything is stored. Pass a
+   *  stable object. */
+  paramDefaults?: Partial<Params>;
 }
 
 /** The whole wall as a standalone lab page: slots, selection, layout, camera,
@@ -134,9 +142,12 @@ function initialSelection<T extends Item>(compiled: CompiledSpec<T>,
 function WallViewBody<T extends Item>({
   compiled, title, urls, fetchItems, fetchSlots, defaultSlot, storageKey, cssRoot = '--wall',
   pages, header, groupings = [], facet, renderCard, renderDetail, linkedBadges, linkTarget,
-  drawMark, washColor, ground, describe, initial, onChange,
+  drawMark, washColor, ground, describe, initial, onChange, compact = false, mode, paramDefaults,
 }: WallViewProps<T> & { compiled: CompiledSpec<T> }) {
-  const schema = useMemo(() => paramSchema(compiled.states), [compiled]);
+  const schema = useMemo(() => {
+    const base = paramSchema(compiled.states);
+    return paramDefaults ? { ...base, defaults: { ...base.defaults, ...paramDefaults } as Params } : base;
+  }, [compiled, paramDefaults]);
   const { params, setParam, reset: resetParams } = useParams(schema, { storageKey, root: cssRoot });
 
   const [slots, setSlots] = useState<{ slot: string; n: number }[]>([]);
@@ -406,8 +417,8 @@ function WallViewBody<T extends Item>({
   const openedItem = itemAt(opened);
 
   return (
-    <LabShell title={title} pages={pages}
-              header={(
+    <LabShell title={title} pages={pages} mode={mode}
+              header={compact ? undefined : (
                 <>
                   {slots.length > 0 && (
                     <label className="wall-slot">
@@ -429,13 +440,13 @@ function WallViewBody<T extends Item>({
                     reset={() => { looseHandle.current?.reset(); vectorHandle.current?.reset(); }} />
                 </>
               )}>
-      <div className="wall-app">
-        <Sidebar compiled={compiled} selection={selection} onChange={setSelection}
+      <div className={compact ? 'wall-app wall-app--compact' : 'wall-app'}>
+        {!compact && <Sidebar compiled={compiled} selection={selection} onChange={setSelection}
                  groupings={[NONE, ...groupings]}
                  facet={facet && { ...facet, counts: facetCounts }}
                  shown={rows.length} total={facts?.store.length ?? 0}
                  paramSchema={schema} params={params} setParam={setParam}
-                 resetParams={resetParams} />
+                 resetParams={resetParams} />}
         {/* Mounted from the start: the canvas size is measured on first mount. */}
         <div className="wall-stage" ref={box}
              onWheel={(e) => {
@@ -488,7 +499,7 @@ function WallViewBody<T extends Item>({
               })}
             </ItemCard>
           )}
-          {facts && legendOpen && (
+          {facts && legendOpen && !compact && (
             <Legend compiled={compiled} facts={facts} rows={rows} tagRows={tagRows}
                     highlight={highlight} onHighlight={setHighlight}
                     tags={[...(selection.tags ?? [])]}
