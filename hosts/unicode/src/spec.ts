@@ -87,7 +87,8 @@ export const UNICODE: CorpusSpec<CodePoint> = {
     { key: 'id', corner: 'bl', weight: 'id', text: { expr: 'item.id' } },
   ],
   tints,
-  glyph: { hook: 'character' },
+  // Measured over every 16th assigned character in Chrome on macOS.
+  glyph: { hook: 'character', cover: 0.228 },
   hooks: {
     character: (c) => (c.kind === 'assigned' ? String.fromCodePoint(c.cp) : null),
   },

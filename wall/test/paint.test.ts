@@ -182,4 +182,16 @@ describe('glyphBlend', () => {
       expect(Math.abs(b.ink - a.ink)).toBeLessThan(0.05);
     }
   });
+
+  it('holds a cell at its finished brightness at every size, given cover', async () => {
+    const { glyphBlend, GLYPH_FULL_PX } = await import('../src/paint');
+    const cover = 0.2;
+    const mean = 0.24 + 0.76 * cover;
+    expect(glyphBlend(2, cover)).toEqual({ ground: expect.closeTo(mean, 9), ink: 0 });
+    expect(glyphBlend(GLYPH_FULL_PX, cover).ground).toBeCloseTo(0.24, 9);
+    for (let px = 2; px < 60; px += 0.5) {
+      const { ground, ink } = glyphBlend(px, cover);
+      expect(ground + (1 - ground) * ink * cover).toBeCloseTo(mean, 9);
+    }
+  });
 });

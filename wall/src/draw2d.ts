@@ -252,7 +252,7 @@ export function drawPaintCommand(ctx: CanvasRenderingContext2D, cmd: PaintComman
       drawCellMark(ctx, cmd.mark, dx + cmd.dw / 2, dy + cmd.dh / 2,
                    cmd.dw * CIRCLE_SCALE / 2, options);
     } else if (cmd.glyph) {
-      const { ground, ink } = glyphBlend(cmd.dw);
+      const { ground, ink } = glyphBlend(cmd.dw, cmd.cover);
       const alpha = ctx.globalAlpha;
       ctx.globalAlpha = alpha * ground;
       ctx.fillRect(dx, dy, cmd.dw, cmd.dh);

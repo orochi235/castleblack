@@ -25,7 +25,9 @@ A `CorpusSpec` (`src/schema.ts`):
 - **Tags** (a CEL list) and the **axes** they are picked along: alternatives
   within an axis, narrowing across axes.
 - **Facets, captions, glyph and mark** — display projections, as CEL or as a
-  named TypeScript hook. A facet hook names the fields it `reads`.
+  named TypeScript hook. A facet hook names the fields it `reads`. A glyph's
+  `cover`, the share of a cell its characters ink on average, keeps a far cell
+  from being brighter than the character that replaces it up close.
 - **Badges**: art per tag, in a corner or the strip, with the mark art in
   `marks`. A badge can yield to a caption, and drops wherever that caption is
   drawn. Only a top-right caption moves aside for a corner badge.

@@ -51,10 +51,19 @@ const ease = (t: number) => {
 /** How a glyph cell of `px` reads: the ground's opacity, which thins as the
  *  cell grows, and the glyph's, which rises from nothing at `GLYPH_MIN_PX`.
  *  The pixel tiles and the drawn cells both follow it, so zooming across
- *  the sizes where one takes over from the other changes nothing at once. */
-export function glyphBlend(px: number): { ground: number; ink: number } {
-  const ground = 1 - (1 - GLYPH_GROUND_NEAR) * ease((px - 8) / (GLYPH_FULL_PX - 8));
-  return { ground, ink: ease((px - GLYPH_MIN_PX) / (GLYPH_FULL_PX - GLYPH_MIN_PX)) };
+ *  the sizes where one takes over from the other changes nothing at once.
+ *
+ *  With `cover`, the share of a cell a glyph inks on average, the ground gives
+ *  up what the ink adds, so a cell's mean brightness is the same at every size
+ *  and a far square is no brighter than the character that replaces it. */
+export function glyphBlend(px: number, cover?: number): { ground: number; ink: number } {
+  const ink = ease((px - GLYPH_MIN_PX) / (GLYPH_FULL_PX - GLYPH_MIN_PX));
+  if (cover === undefined) {
+    return { ground: 1 - (1 - GLYPH_GROUND_NEAR) * ease((px - 8) / (GLYPH_FULL_PX - 8)), ink };
+  }
+  const c = Math.max(0, Math.min(0.99, cover));
+  const mean = GLYPH_GROUND_NEAR + (1 - GLYPH_GROUND_NEAR) * c;
+  return { ground: (mean - ink * c) / (1 - ink * c), ink };
 }
 /** How hard the whole wall washes while it shows the previous slot's items. */
 export const STALE_WASH = 0.85;
@@ -87,7 +96,7 @@ export type PaintCommand =
        ground: string; alpha?: number; wash?: number } & Decor)
   | ({ kind: 'fill'; dx: number; dy: number; dw: number; dh: number;
        fill: string; border: string | null; borderWidth: number; shape: Shape;
-       glyph?: string; mark?: string; slash: boolean; wash?: number } & Decor)
+       glyph?: string; cover?: number; mark?: string; slash: boolean; wash?: number } & Decor)
   | ({ kind: 'image'; dx: number; dy: number; dw: number; dh: number;
        image: CanvasImageSource; ground: string; wash?: number; alpha?: number } & Decor)
   | { kind: 'label'; text: string; count: number; dx: number; dy: number;
@@ -228,6 +237,7 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
       shape: state.shape,
       glyph: quiet && dw >= GLYPH_MIN_PX && !mark
         ? glyphOf(facts, row) ?? undefined : undefined,
+      cover: quiet ? compiled.spec.glyph?.cover : undefined,
       mark,
       captions: quiet ? undefined
         : appearance.showCaptions ? captionsFor(row, dw, CAPTION_ON_FILL) : NO_CAPTIONS,

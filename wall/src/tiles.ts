@@ -132,7 +132,8 @@ function pixelTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingCont
   const plain = highlight === null && highlightTag === null && !stale && !appearance.wash;
   // A quiet cell wears a glyph once close, so far off it is the ground the
   // glyph will sit on, not a solid square that the glyph then replaces.
-  const glyphGround = compiled.spec.glyph ? glyphBlend(laid.cell * scale).ground : 1;
+  const glyphGround = compiled.spec.glyph
+    ? glyphBlend(laid.cell * scale, compiled.spec.glyph.cover).ground : 1;
   const opacityOf = (quiet: boolean | undefined) => (quiet ? glyphGround : 1);
   const byState = compiled.states.map((s) => {
     const style = palette.states[s.key]!;

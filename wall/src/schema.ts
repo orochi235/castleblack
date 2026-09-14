@@ -132,8 +132,10 @@ export interface CorpusSpec<T extends Item = Item> {
   badges?: BadgeDef[];
   captions?: CaptionDef[];
   tints?: TintDef<T>[];
-  /** What a quiet cell wears: a mark if it has one, else a glyph. */
-  glyph?: Projection;
+  /** What a quiet cell wears: a mark if it has one, else a glyph. `cover`, the
+   *  share of a cell its glyphs ink on average, keeps a far cell as bright as
+   *  a near one; without it a far cell is a solid square of its state's color. */
+  glyph?: Projection & { cover?: number };
   mark?: Projection;
   /** The art a badge's or quiet cell's `mark` names. */
   marks?: Marks;
