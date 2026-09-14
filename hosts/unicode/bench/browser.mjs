@@ -19,6 +19,11 @@ const DPR = dprArg > 0 ? Number(process.argv[dprArg + 1]) : 1;
 const DEV = process.argv.includes('--dev');
 const shotArg = process.argv.indexOf('--shot');
 const SHOT = shotArg > 0 ? process.argv[shotArg + 1] : null;
+// WebGL cell bodies instead of Canvas2D; they only differ once cells are past tile size.
+const SCENE = process.argv.includes('--scene');
+// A fast machine draws either renderer inside a vsync; throttling shows which costs more.
+const throttleArg = process.argv.indexOf('--throttle');
+const THROTTLE = throttleArg > 0 ? Number(process.argv[throttleArg + 1]) || 1 : 1;
 const API_PORT = 8797;
 const VIEWPORT = { width: 1600, height: 1000 };
 const MARK = 'pezlie:complete';
@@ -28,7 +33,7 @@ const CHANGES = [
   ['Show', 'assigned'], ['Show', 'all'], ['Order', 'age'], ['Order', 'name'], ['Order', 'cp'],
   ['Color', 'age'], ['Color', 'status'], ['Show', 'unassigned'], ['Show', 'all'],
 ];
-const TOTAL = 3 + CHANGES.length;
+const TOTAL = 5 + CHANGES.length;
 let step = 0;
 const misses = [];
 function report(name, ms, gate, note = '') {
@@ -71,7 +76,8 @@ try {
   const base = vite.resolvedUrls.local[0];
   console.log(`serving ${DEV ? 'the dev server' : 'a production build'} at ${base}, dpr ${DPR}`);
 
-  browser = await chromium.launch({ headless: true });
+  // Headless Chromium otherwise draws WebGL in SwiftShader, on the CPU.
+  browser = await chromium.launch({ headless: true, args: ['--use-angle=metal', '--enable-gpu'] });
   const open = async () => {
     const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: DPR });
     const page = await context.newPage();
@@ -111,23 +117,49 @@ try {
     return marks.length > 0 && performance.now() - marks.at(-1).startTime > 300;
   }, MARK, { timeout: 30_000, polling: 100 }).catch(() => {});
 
-  await page.evaluate(() => {
-    window.__frames = [];
-    let last = performance.now();
-    window.__recording = true;
-    const tick = (t) => { window.__frames.push(t - last); last = t; if (window.__recording) requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-  });
-  await page.mouse.down();
-  await page.mouse.move(cx - 400, cy - 250, { steps: 90 });
-  await page.mouse.move(cx + 300, cy + 200, { steps: 90 });
-  await page.mouse.up();
-  for (let i = 0; i < 24; i++) { await page.mouse.wheel(0, i % 12 < 6 ? -100 : 100); await page.waitForTimeout(40); }
-  const frames = await page.evaluate(() => { window.__recording = false; return window.__frames.slice(1); });
-  frames.sort((a, b) => a - b);
-  const at = (q) => frames[Math.min(frames.length - 1, Math.floor(q * frames.length))];
-  report('median frame, pan and zoom', at(0.5), GATES.medianFrameMs, `  ${frames.length} frames`);
-  report('95th percentile frame', at(0.95), GATES.p95FrameMs, `  worst ${frames.at(-1).toFixed(1)} ms`);
+  const settle = () => page.waitForFunction((mark) => {
+    const marks = performance.getEntriesByName(mark);
+    return marks.length > 0 && performance.now() - marks.at(-1).startTime > 300;
+  }, MARK, { timeout: 30_000, polling: 100 }).catch(() => {});
+  const cdp = await page.context().newCDPSession(page);
+  if (SCENE) {
+    await page.getByLabel('WebGL cell bodies').first().check({ force: true });
+    await settle();
+    const gpu = await page.evaluate(() => {
+      const gl = document.querySelector('.wall-canvas-gl')?.getContext('webgl2');
+      const info = gl?.getExtension('WEBGL_debug_renderer_info');
+      return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'unknown';
+    });
+    console.log(`        WebGL cell bodies on ${gpu}`);
+  }
+  console.log(`        ${SCENE ? 'WebGL' : 'Canvas2D'} bodies, CPU throttled ${THROTTLE}x for the frames`);
+
+  const panAndZoom = async (where) => {
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+    await page.evaluate(() => {
+      window.__frames = [];
+      let last = performance.now();
+      window.__recording = true;
+      const tick = (t) => { window.__frames.push(t - last); last = t; if (window.__recording) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+    await page.mouse.down();
+    await page.mouse.move(cx - 400, cy - 250, { steps: 90 });
+    await page.mouse.move(cx + 300, cy + 200, { steps: 90 });
+    await page.mouse.up();
+    for (let i = 0; i < 24; i++) { await page.mouse.wheel(0, i % 12 < 6 ? -100 : 100); await page.waitForTimeout(40); }
+    const frames = await page.evaluate(() => { window.__recording = false; return window.__frames.slice(1); });
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    frames.sort((a, b) => a - b);
+    const at = (q) => frames[Math.min(frames.length - 1, Math.floor(q * frames.length))];
+    report(`median frame, ${where}`, at(0.5), GATES.medianFrameMs, `  ${frames.length} frames`);
+    report(`95th percentile frame, ${where}`, at(0.95), GATES.p95FrameMs, `  worst ${frames.at(-1).toFixed(1)} ms`);
+  };
+  await panAndZoom('whole wall');
+  // In until cells are past tile size, where each renderer draws every cell itself.
+  for (let i = 0; i < 40; i++) { await page.mouse.wheel(0, -200); await page.waitForTimeout(30); }
+  await settle();
+  await panAndZoom('close');
 
   for (const [label, value] of CHANGES) {
     const ms = await page.evaluate(([label, value, mark]) => new Promise((resolve, reject) => {
