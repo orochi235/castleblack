@@ -3,7 +3,7 @@ import type { CompiledSpec } from './cel';
 import { tagsOf, tintColumn, type Facts } from './derive';
 import { drawPaintCommand, type DrawOptions } from './draw2d';
 import { rectAt, visiblePositions, visibleSpans, type Laid } from './layout';
-import { GLYPH_MIN_PX, paintCommands, STALE_WASH, type Appearance } from './paint';
+import { GLYPH_MIN_PX, glyphBlend, paintCommands, STALE_WASH, type Appearance } from './paint';
 import type { Palette } from './palette';
 import type { Item } from './schema';
 import type { SheetManifest } from './sheet';
@@ -79,8 +79,8 @@ function ref(z: number, tx: number, ty: number): TileRef {
 
 /** The tiles covering the viewport, in rows. */
 export function coveringTiles(cam: View, viewport: { width: number; height: number },
-                              dpr: number): TileRef[] {
-  const z = tileLevel(cam.scale.x, dpr);
+                              dpr: number, level?: number): TileRef[] {
+  const z = level ?? tileLevel(cam.scale.x, dpr);
   const size = TILE_PX / 2 ** z;
   const x1 = cam.x + viewport.width / cam.scale.x;
   const y1 = cam.y + viewport.height / cam.scale.y;
@@ -130,9 +130,13 @@ function pixelTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingCont
     return out;
   };
   const plain = highlight === null && highlightTag === null && !stale && !appearance.wash;
+  // A quiet cell wears a glyph once close, so far off it is the ground the
+  // glyph will sit on, not a solid square that the glyph then replaces.
+  const glyphGround = compiled.spec.glyph ? glyphBlend(laid.cell * scale).ground : 1;
+  const opacityOf = (quiet: boolean | undefined) => (quiet ? glyphGround : 1);
   const byState = compiled.states.map((s) => {
     const style = palette.states[s.key]!;
-    return colorOf(style.border ?? style.fill, 0, 1);
+    return colorOf(style.border ?? style.fill, 0, opacityOf(s.quiet));
   });
   // A ramp has STEPS swatches, so a measure is a lookup, as `tintFor` would draw it.
   const measured = plain && tint !== STATUS ? tintColumn(facts, tint) : null;
@@ -162,7 +166,7 @@ function pixelTile<T extends Item>(scene: TileScene<T>, ctx: CanvasRenderingCont
           const washBy = stale ? Math.max(STALE_WASH, appearance.washStrength)
             : appearance.wash && facts.washed[row] ? appearance.washStrength : 0;
           color = colorOf(tint === STATUS ? style.border ?? style.fill : style.fill, washBy,
-                          dimmed ? appearance.dimAlpha : 1);
+                          (dimmed ? appearance.dimAlpha : 1) * opacityOf(state.quiet));
         }
         const px0 = Math.floor((block.x + c * laid.pitch - view.x) * scale);
         const x0 = Math.max(0, px0);
@@ -223,6 +227,9 @@ export class TileCache<T extends Item> {
   readonly #tiles = new Map<string, TileSurface>();
   #previous: TileCache<T> | null;
   #lastCenter: { x: number; y: number } | null = null;
+  /** The level on screen, and since when; the one it replaced fades out under it. */
+  #layer: { z: number; since: number } | null = null;
+  #fading: { z: number; until: number } | null = null;
   #lead = { x: 0, y: 0 };
   #room: number;
 
@@ -349,22 +356,56 @@ export class TileCache<T extends Item> {
     }
     const pending = extra.some((t) => !this.#tiles.has(t.key));
 
+    // Show one level for the whole screen: the wanted one once every tile of it
+    // is in, else the last level that covered the screen, else whatever is
+    // held. A level change crossfades the whole view instead of tile by tile.
+    const t = now();
+    const covered = (level: number) =>
+      coveringTiles(cam, viewport, dpr, level).every((tile) => this.#held(tile.key));
+    let shown = z;
+    if (!covered(z) && this.#layer && this.#layer.z !== z && Math.abs(this.#layer.z - z) <= 2
+        && covered(this.#layer.z)) {
+      shown = this.#layer.z;
+    }
+    if (!this.#layer || this.#layer.z !== shown) {
+      if (this.#layer && this.#tiles.size > 0) this.#fading = { z: this.#layer.z, until: t + FADE_MS };
+      this.#layer = { z: shown, since: t };
+    }
+    let animating = false;
+    ctx.imageSmoothingEnabled = true;
+    const fading = this.#fading && this.#fading.until > t ? this.#fading : null;
+    if (fading) {
+      animating = true;
+      this.#drawLevel(ctx, cam, viewport, dpr, fading.z, t, null);
+    }
+    const alpha = ctx.globalAlpha;
+    if (fading) ctx.globalAlpha = alpha * (1 - (fading.until - t) / FADE_MS);
+    const drawn = this.#drawLevel(ctx, cam, viewport, dpr, shown, t, this.#layer.since);
+    ctx.globalAlpha = alpha;
+    return { complete: drawn.complete && shown === z, animating: animating || drawn.animating,
+             pending: pending || shown !== z };
+  }
+
+  /** Draws `level`'s tiles covering the view. A tile rendered after `since`
+   *  fades in over its stand-in; with `since` null nothing fades. */
+  #drawLevel(ctx: CanvasRenderingContext2D, cam: View, viewport: { width: number; height: number },
+             dpr: number, level: number, t: number, since: number | null) {
     let complete = true;
     let animating = false;
-    const t = now();
-    ctx.imageSmoothingEnabled = true;
-    for (const tile of tiles) {
+    for (const tile of coveringTiles(cam, viewport, dpr, level)) {
       const dx = (tile.x - cam.x) * cam.scale.x;
       const dy = (tile.y - cam.y) * cam.scale.y;
       const dw = tile.size * cam.scale.x;
       const dh = tile.size * cam.scale.y;
-      const hit = this.#use(tile.key);
+      const own = this.#use(tile.key);
+      if (!own) complete = false;
+      const hit = own ?? this.#previous?.peek(tile.key);
       if (!hit) {
-        complete = false;
         this.#standIn(ctx, tile, dx, dy, dw, dh);
         continue;
       }
-      const age = hit.bornAt === undefined ? FADE_MS : t - hit.bornAt;
+      const age = since === null || hit.bornAt === undefined || hit.bornAt < since
+        ? FADE_MS : t - hit.bornAt;
       if (age >= FADE_MS) { ctx.drawImage(hit.canvas, dx, dy, dw, dh); continue; }
       animating = true;
       this.#standIn(ctx, tile, dx, dy, dw, dh);
@@ -373,7 +414,7 @@ export class TileCache<T extends Item> {
       ctx.drawImage(hit.canvas, dx, dy, dw, dh);
       ctx.globalAlpha = alpha;
     }
-    return { complete, animating, pending };
+    return { complete, animating };
   }
 
   #held(key: string): TileSurface | undefined {

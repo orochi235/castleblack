@@ -97,11 +97,25 @@ describe('TileCache', () => {
     expect(made.length).toBe(before);
   });
 
-  it('stands in for a missing tile with the part of a coarser one it covers', () => {
+  it('keeps showing the level that covers the screen until the next one is whole', () => {
     const { make } = surfaces();
     const cache = new TileCache(scene(items, 1, 8), make);
     cache.draw(fakeContext(), cam(0, 0, 0.5), { width: 512, height: 512 }, 1, 1000);
-    expect(cache.has(tileKey(-1, 0, 0))).toBe(true);
+    const coarse = cache.peek(tileKey(-1, 0, 0))!;
+    const ctx = fakeContext();
+    let t = 0;
+    const frame = cache.draw(ctx, cam(0, 0, 1), { width: 1024, height: 512 }, 1, 0, () => (t += 1));
+    expect(frame).toMatchObject({ complete: false, pending: true });
+    const drawn = ctx.calls.filter(([name]) => name === 'drawImage');
+    // The whole screen is the coarse level, drawn at twice its size; no patchwork of the two.
+    expect(drawn.map(([, args]) => args[0])).toEqual([coarse.canvas]);
+    expect(drawn[0]![1].slice(1)).toEqual([0, 0, TILE_PX * 2, TILE_PX * 2]);
+  });
+
+  it('stands in for a missing tile with the part of a coarser one it covers', () => {
+    const { make } = surfaces();
+    const cache = new TileCache(scene(items, 1, 8), make);
+    cache.render(at(-1, 0, 0));
     const ctx = fakeContext();
     let t = 0;
     cache.draw(ctx, cam(0, 0, 1), { width: 1024, height: 512 }, 1, 0, () => (t += 1));

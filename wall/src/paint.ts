@@ -37,6 +37,25 @@ export const BADGE_MIN_PX = 56;
 export const LABEL_MIN_PX = 88;
 /** Below this a glyph is a smudge. */
 export const GLYPH_MIN_PX = 22;
+/** Where a glyph cell has finished turning from a colored square into a
+ *  character on a faint ground of that color. */
+export const GLYPH_FULL_PX = 44;
+/** How much of its state's color a glyph cell's ground keeps once close. */
+const GLYPH_GROUND_NEAR = 0.24;
+
+const ease = (t: number) => {
+  const c = Math.max(0, Math.min(1, t));
+  return c * c * (3 - 2 * c);
+};
+
+/** How a glyph cell of `px` reads: the ground's opacity, which thins as the
+ *  cell grows, and the glyph's, which rises from nothing at `GLYPH_MIN_PX`.
+ *  The pixel tiles and the drawn cells both follow it, so zooming across
+ *  the sizes where one takes over from the other changes nothing at once. */
+export function glyphBlend(px: number): { ground: number; ink: number } {
+  const ground = 1 - (1 - GLYPH_GROUND_NEAR) * ease((px - 8) / (GLYPH_FULL_PX - 8));
+  return { ground, ink: ease((px - GLYPH_MIN_PX) / (GLYPH_FULL_PX - GLYPH_MIN_PX)) };
+}
 /** How hard the whole wall washes while it shows the previous slot's items. */
 export const STALE_WASH = 0.85;
 export const DEFAULT_GROUND = '#ffffff';

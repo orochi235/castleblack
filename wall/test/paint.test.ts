@@ -168,3 +168,18 @@ it('tallies items by state', () => {
   const facts = derive(compiled, [thing('a', 0), thing('b', 1, { level: 1 }), thing('c', 2)]);
   expect(tally(compiled, facts)).toMatchObject({ idle: 2, warn: 1, broken: 0, warnRemote: 0 });
 });
+
+describe('glyphBlend', () => {
+  it('turns a colored square into a glyph on a faint ground without a jump', async () => {
+    const { glyphBlend, GLYPH_MIN_PX, GLYPH_FULL_PX } = await import('../src/paint');
+    expect(glyphBlend(2)).toEqual({ ground: 1, ink: 0 });
+    expect(glyphBlend(GLYPH_MIN_PX).ink).toBe(0);
+    expect(glyphBlend(GLYPH_FULL_PX)).toEqual({ ground: 0.24, ink: 1 });
+    for (let px = 4; px < 60; px += 0.5) {
+      const a = glyphBlend(px);
+      const b = glyphBlend(px + 0.5);
+      expect(Math.abs(b.ground - a.ground)).toBeLessThan(0.05);
+      expect(Math.abs(b.ink - a.ink)).toBeLessThan(0.05);
+    }
+  });
+});

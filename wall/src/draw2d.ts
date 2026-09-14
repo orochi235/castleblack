@@ -5,7 +5,7 @@
  */
 import { BADGE_FACE, BADGE_WEIGHT, THUMB_FACE, drawBadge, drawMarkShapes } from './badgeDraw';
 import type { Marks } from './marks';
-import { WEIGHT_ID, WEIGHT_TEXT, type Caption, type PaintCommand } from './paint';
+import { glyphBlend, WEIGHT_ID, WEIGHT_TEXT, type Caption, type PaintCommand } from './paint';
 import type { Palette } from './palette';
 import type { BadgeArt } from './schema';
 
@@ -252,7 +252,15 @@ export function drawPaintCommand(ctx: CanvasRenderingContext2D, cmd: PaintComman
       drawCellMark(ctx, cmd.mark, dx + cmd.dw / 2, dy + cmd.dh / 2,
                    cmd.dw * CIRCLE_SCALE / 2, options);
     } else if (cmd.glyph) {
-      drawGlyph(ctx, cmd.glyph, box);
+      const { ground, ink } = glyphBlend(cmd.dw);
+      const alpha = ctx.globalAlpha;
+      ctx.globalAlpha = alpha * ground;
+      ctx.fillRect(dx, dy, cmd.dw, cmd.dh);
+      if (ink > 0) {
+        ctx.globalAlpha = alpha * ink;
+        drawGlyph(ctx, cmd.glyph, box);
+      }
+      ctx.globalAlpha = alpha;
     } else if (cmd.shape === 'circle') {
       ctx.beginPath();
       ctx.ellipse(dx + cmd.dw / 2, dy + cmd.dh / 2,

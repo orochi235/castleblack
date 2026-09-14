@@ -105,9 +105,5 @@ the work profile, not a failure.
 3. **Close the gaps between `/wall` and `/corpus`** in brick-icons (part search,
    the slot groups, the camera and caret in the hash), and adapt `/wall` to the
    column rewrite when its pin moves.
-4. **Tiles still pop in on a fast zoom.** They now fade in over a stand-in (the
-   previous scene, finer tiles, or a coarser one, with a whole-wall floor level
-   always kept). Off screen, the level above and a one- or two-tile margin leaning
-   the way the view last moved render with spare frame time and then idle time,
-   and loose and vector pictures load half a screen ahead;
-   whether that is enough is the owner's call from using it.
+4. **Pop-in, as of the last change.** A glyph cell now turns from a colored square into a character on a faint ground gradually with size (`glyphBlend`), and the wall shows one level at a time, crossfading the whole view when the next level is ready.
+   Whether the rest is enough is the owner's call from using it.
