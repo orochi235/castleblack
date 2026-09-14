@@ -56,10 +56,11 @@ buffers; it never builds an object per item.
 - **Poll deltas** arrive as a table of changed rows and are applied by `index`.
   A delta drops the cached sort orders and tiles that read a column it changed.
 
-Arrow is on trial. The first build step decodes the 1,114,112-row Unicode table
-in headless Chromium and reads every column once; if that takes more than
-200 ms, a custom binary format (a JSON header of dictionaries plus
-one typed-array buffer) replaces it before anything is built on top.
+**Arrow passed its trial.** Decoding the 1,114,112-row Unicode table (70 MB,
+8.0 MB gzipped) and reading every column buffer and dictionary once takes
+67.6 ms warm in headless Chromium, against a 200 ms bar; the decode itself is
+under 1 ms, because Arrow reads the buffers in place.
+`hosts/unicode/bench/arrow-trial.mjs` reproduces it.
 
 ### State matching grouped by value
 

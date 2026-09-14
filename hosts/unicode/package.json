@@ -1,0 +1,14 @@
+{
+  "name": "@pezlie/host-unicode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
