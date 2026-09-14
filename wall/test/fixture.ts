@@ -70,7 +70,7 @@ export const SPEC: CorpusSpec<Thing> = {
     { key: 'id', corner: 'bl', weight: 'id', text: { expr: 'item.id' } },
   ],
   tints: [
-    { key: 'score', label: 'score', scaleLabel: 'score out of ten', log: false,
+    { key: 'score', label: 'score', scaleLabel: 'score out of ten', log: false, reads: ['score'],
       t: (i) => (i.score === null ? null : i.score / 10), raw: (i) => i.score,
       at: (t) => t * 10, format: (v) => String(Math.round(v)) },
   ],

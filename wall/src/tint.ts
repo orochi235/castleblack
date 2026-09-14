@@ -1,4 +1,4 @@
-import type { Facts } from './derive';
+import { stateKey, tintAt, type Facts } from './derive';
 import type { CellStyle, Palette } from './palette';
 import type { Item } from './schema';
 
@@ -53,10 +53,8 @@ export function ramp(t: number, name: RampName = 'ember'): string {
 export function tintFor<T extends Item>(facts: Facts<T>, row: number, mode: string,
                                         palette: Palette,
                                         gradient: RampName = 'ember'): CellStyle {
-  if (mode === STATUS) return palette.states[facts.state[row]!]!;
-  const column = facts.tint[mode];
-  if (!column) throw new Error(`no tint named ${mode}`);
-  const t = column[row];
-  if (t === null || t === undefined) return palette.unmatched;
+  if (mode === STATUS) return palette.states[stateKey(facts, row)]!;
+  const t = tintAt(facts, mode, row);
+  if (t === null) return palette.unmatched;
   return { fill: ramp(t, gradient), border: null, weight: null };
 }

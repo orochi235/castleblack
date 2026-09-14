@@ -105,9 +105,9 @@ describe.each(SEEDS)('seed %i', (seed) => {
                 tint: 'status', gradient: 'ember', excluded, badges, desc: false,
               };
               const want = legacySelect(cells, legacy).map((c) => c.id);
-              const got = applySelection(compiled, facts,
-                { sort, filter, shown, exclude: { category: excluded }, tags: badges })
-                .map((row) => cells[row]!.id);
+              const got = Array.from(applySelection(compiled, facts,
+                { sort, filter, shown, exclude: { category: excluded }, tags: badges }),
+                (row) => cells[row]!.id);
               if (serialize(got) !== serialize(want)) {
                 differ.push(`${sort}/${filter}/${serialize(shown)}/${excluded}/${badges}`);
               }

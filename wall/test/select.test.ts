@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
 import { compile } from '../src/cel';
 import { derive } from '../src/derive';
-import { applySelection, byAxis, type Selection } from '../src/select';
+import { naturalCompare } from '../src/natural';
+import { applySelection, byAxis, sortOrder, type Selection } from '../src/select';
+import { rng } from './random';
 import { SPEC, thing, type Thing } from './fixture';
 
 const compiled = compile(SPEC);
@@ -9,7 +11,7 @@ const ALL: Selection = { sort: 'id', filter: 'all', shown: { hidden: true, archi
 
 function ids(items: Thing[], selection: Selection): string[] {
   const facts = derive(compiled, items);
-  return applySelection(compiled, facts, selection).map((row) => items[row]!.id);
+  return Array.from(applySelection(compiled, facts, selection), (row) => items[row]!.id);
 }
 
 it('keeps what the filter keeps', () => {
@@ -54,9 +56,41 @@ it('sorts nulls last in both directions', () => {
   expect(ids(items, { ...ALL, sort: 'kind' })).toEqual(['a', 'b', 'c']);
 });
 
-it('breaks a tie by natural id order, and compares strings naturally', () => {
-  const tied = [thing('x10', 0), thing('x9', 1), thing('x9b', 2)];
+it('breaks a tie by index order, and compares strings naturally', () => {
+  const tied = [thing('x10', 2), thing('x9', 0), thing('x9b', 1)];
   expect(ids(tied, { ...ALL, sort: 'score' })).toEqual(['x9', 'x9b', 'x10']);
   const kinds = [thing('a', 0, { kind: 'k10' }), thing('b', 1, { kind: 'k2' })];
   expect(ids(kinds, { ...ALL, sort: 'kind' })).toEqual(['b', 'a']);
+});
+
+it('orders as a comparator over every item would, on random corpora', () => {
+  const r = rng(5);
+  const pick = <V>(xs: readonly V[]) => xs[Math.floor(r() * xs.length)]!;
+  const items = Array.from({ length: 300 }, (_, i) => thing(`t${i}`, i, {
+    score: pick([null, 1, 2, 2, 7]), kind: pick([null, 'k2', 'k10', 'a']), err: pick([null, 'x']),
+  }));
+  const facts = derive(compiled, items);
+  for (const def of SPEC.sorts) {
+    const rule = compiled.sorts[def.key]!;
+    const dir = def.desc ? -1 : 1;
+    const want = items.map((_, row) => row).sort((a, b) => {
+      const ka = rule(items[a]!);
+      const kb = rule(items[b]!);
+      if (ka === null) return kb === null ? a - b : 1;
+      if (kb === null) return -1;
+      if (ka === kb) return items[a]!.index - items[b]!.index;
+      if (typeof ka === 'string' && typeof kb === 'string') return naturalCompare(ka, kb) * dir;
+      return ((ka as number) < (kb as number) ? -1 : 1) * dir;
+    });
+    expect(Array.from(sortOrder(facts, def.key)), def.key).toEqual(want);
+  }
+});
+
+it('sorts once per sort, whatever else the selection changes', () => {
+  const items = Array.from({ length: 20 }, (_, i) => thing(`t${i}`, i, { score: i % 4 }));
+  const facts = derive(compiled, items);
+  const first = sortOrder(facts, 'score');
+  applySelection(compiled, facts, { ...ALL, sort: 'score', filter: 'broken' });
+  applySelection(compiled, facts, { ...ALL, sort: 'score', exclude: { group: ['north'] } });
+  expect(sortOrder(facts, 'score')).toBe(first);
 });

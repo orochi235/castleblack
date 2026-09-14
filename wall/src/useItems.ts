@@ -1,29 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Table } from 'apache-arrow';
 import type { Item } from './schema';
+import { itemsFromArrow, storeFromArrow, storeFromItems, type ItemStore } from './store';
 
 export const POLL_MS = 10_000;
 
-/** A host's item feed: the full list, or with `since` only what changed. */
-export type FetchItems<T extends Item> =
-  (slot: string, since?: string) => Promise<{ items: T[]; version: string }>;
+/** What a host's feed answers: every item, or with `since` only what changed.
+ *  Objects suit tens of thousands of items; past that, send an Arrow table in
+ *  index order. */
+export type ItemsBody<T extends Item> =
+  | { items: readonly T[]; version: string }
+  | { table: Table; version: string };
 
-/** Fold a delta into the wall's items.
- *
- *  Untouched items keep their identity, and `changed` names the rows replaced,
- *  so a caller re-derives only those. */
-export function mergeItems<T extends Item>(current: T[], delta: readonly T[]):
-    { items: T[]; changed: number[] } {
-  if (delta.length === 0) return { items: current, changed: [] };
-  const byId = new Map(delta.map((d) => [d.id, d]));
-  const changed: number[] = [];
-  const items = current.map((item, row) => {
-    const next = byId.get(item.id);
-    if (next === undefined) return item;
-    changed.push(row);
-    return next;
-  });
-  return { items: changed.length > 0 ? items : current, changed };
+/** A host's item feed: the full list, or with `since` only what changed. */
+export type FetchItems<T extends Item> = (slot: string, since?: string) => Promise<ItemsBody<T>>;
+
+export function storeOf<T extends Item>(body: ItemsBody<T>): ItemStore<T> {
+  return 'table' in body ? storeFromArrow<T>(body.table) : storeFromItems(body.items);
 }
+
+const deltaOf = <T extends Item>(body: ItemsBody<T>): readonly T[] =>
+  ('table' in body ? itemsFromArrow<T>(body.table) : body.items);
 
 /** The wall's items, the slot they are for, and the rows the last poll replaced.
  *
@@ -32,7 +29,7 @@ export function mergeItems<T extends Item>(current: T[], delta: readonly T[]):
  *  also stops the wall blanking on every switch. `changed` is null after a
  *  full load. */
 export interface ItemsState<T extends Item> {
-  items: T[] | null;
+  store: ItemStore<T> | null;
   slot: string;
   changed: number[] | null;
 }
@@ -40,7 +37,7 @@ export interface ItemsState<T extends Item> {
 /** `fetchItems` is an effect dependency, so a host passes a stable function. */
 export function useItems<T extends Item>(fetchItems: FetchItems<T>, slot: string,
                                          pollMs = POLL_MS): ItemsState<T> {
-  const [state, setState] = useState<ItemsState<T>>({ items: null, slot, changed: null });
+  const [state, setState] = useState<ItemsState<T>>({ store: null, slot, changed: null });
   const version = useRef('');
 
   useEffect(() => {
@@ -49,16 +46,18 @@ export function useItems<T extends Item>(fetchItems: FetchItems<T>, slot: string
     void fetchItems(slot).then((body) => {
       if (!live) return;
       version.current = body.version;
-      setState({ items: body.items, slot, changed: null });
+      setState({ store: storeOf(body), slot, changed: null });
     });
     const timer = setInterval(() => {
       void fetchItems(slot, version.current).then((body) => {
-        if (!live || body.items.length === 0) return;
+        if (!live) return;
+        const delta = deltaOf(body);
+        if (delta.length === 0) return;
         version.current = body.version;
         setState((prev) => {
-          if (prev.slot !== slot || !prev.items) return prev;
-          const merged = mergeItems(prev.items, body.items);
-          return merged.changed.length > 0 ? { slot, ...merged } : prev;
+          if (prev.slot !== slot || !prev.store) return prev;
+          const { store, changed } = prev.store.patch(delta);
+          return changed.length > 0 ? { slot, store, changed } : prev;
         });
       });
     }, pollMs);

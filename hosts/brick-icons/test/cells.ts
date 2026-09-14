@@ -1,6 +1,7 @@
 import { ALL_BADGES } from '@lab/corpus/paint';
 import type { SheetManifest } from '@lab/corpus/types';
 import type { Cell } from '@lab/corpus/types';
+import { naturalCompare } from '@pezlie/wall/src/natural';
 
 /** mulberry32: small, seedable, and the same on every machine. */
 export function rng(seed: number): () => number {
@@ -24,7 +25,7 @@ export function generateCells(seed: number, n: number): Cell[] {
   const r = rng(seed);
   const pick = <V>(xs: readonly V[]): V => xs[Math.floor(r() * xs.length)]!;
   const maybe = (p: number) => r() < p;
-  return Array.from({ length: n }, (_, index) => {
+  const cells = Array.from({ length: n }, (_, index) => {
     const from = maybe(0.2) ? null : 1954 + Math.floor(r() * 73);
     const to = from === null ? (maybe(0.5) ? null : 1990)
       : maybe(0.3) ? from : from + Math.floor(r() * 30);
@@ -60,6 +61,8 @@ export function generateCells(seed: number, n: number): Cell[] {
       ...(maybe(0.1) ? { not_applicable: maybe(0.5) } : {}),
     } as Cell;
   });
+  // A feed numbers its items in id order, so a tie in a sort falls in id order.
+  return cells.sort((a, b) => naturalCompare(a.id, b.id)).map((c, index) => ({ ...c, index }));
 }
 
 /** A sheet holding most drawn cells, some at an older sha, some missing, and a

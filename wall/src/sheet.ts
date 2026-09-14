@@ -57,12 +57,20 @@ export function isStale(m: SheetManifest,
 export function staleCount(m: SheetManifest,
                            items: readonly { id: string; sha: string | null }[]):
                            { stale: number; missing: number; total: number } {
+  return staleCountOf(m, items.length, (i) => items[i]!);
+}
+
+/** `staleCount` over `count` items read one at a time. */
+export function staleCountOf(m: SheetManifest, count: number,
+                             at: (i: number) => { id: string; sha: string | null }):
+                             { stale: number; missing: number; total: number } {
   let stale = 0;
   let missing = 0;
-  for (const item of items) {
+  for (let i = 0; i < count; i++) {
+    const item = at(i);
     // An item with no picture has nothing to bake, so no tile is not missing.
     if (!hasTile(m, item)) { if (item.sha !== null) missing++; }
     else if (isStale(m, item)) stale++;
   }
-  return { stale, missing, total: items.length };
+  return { stale, missing, total: count };
 }

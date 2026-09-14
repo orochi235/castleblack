@@ -61,3 +61,21 @@ it('reads a field the item lacks as false or null, and says so once', () => {
   }
   expect(warn).toHaveBeenCalledTimes(2);
 });
+
+it('says which fields each rule reads, or that it cannot tell', () => {
+  const c = compile({ ...SPEC, hooks: { ...SPEC.hooks }, captions: SPEC.captions });
+  expect(c.filters.drawn!.reads).toEqual(['sha']);
+  expect(c.classes.archived!.reads).toEqual(['archived']);
+  expect(c.tags!.reads).toEqual(['labels']);
+  expect(c.captions.span!.reads).toBeNull();
+  expect(c.byPrecedence.find((s) => s.key === 'brokenRemote')!.match.reads).toEqual(['away']);
+});
+
+it('requires reads of a facet hook and of a tint', () => {
+  const { errors } = compileSpec({
+    ...SPEC,
+    facets: [{ key: 'group', label: 'Group', of: { hook: 'span' } }],
+    tints: SPEC.tints!.map((t) => ({ ...t, reads: undefined as unknown as string[] })),
+  });
+  expect(errors.map((e) => `${e.table}.${e.key}`)).toEqual(['facets.group', 'tints.score']);
+});

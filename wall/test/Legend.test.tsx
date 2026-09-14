@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { compile } from '../src/cel';
-import { derive } from '../src/derive';
+import { derive, stateKey } from '../src/derive';
 import { Legend, type LegendProps } from '../src/Legend';
 import { conditionKeys, labelTable } from '../src/states';
 import { SPEC, thing, type Thing } from './fixture';
@@ -40,7 +40,7 @@ it('renders a row per condition with its own count', () => {
 it('counts a variant under the row for its condition', () => {
   const w = wall([{}, { level: 1 }, { away: ['warn'] }]);
   render(legend({ facts: w.facts, rows: w.rows }));
-  expect(w.facts.state[2]).toBe('warnRemote');
+  expect(stateKey(w.facts, 2)).toBe('warnRemote');
   expect(screen.getByLabelText('warning, 2 items')).toBeTruthy();
 });
 

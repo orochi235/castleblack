@@ -3,17 +3,21 @@ import type { Rect } from './layout';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
+/** A position's cell, or undefined past the end. */
+export type RectOf = (position: number) => Rect | undefined;
+
 /** The cell with the most on-screen area, ties broken by distance from the
  *  viewport center -- the implied caret when nothing has made one explicit. */
-export function impliedCaret(rects: readonly Rect[], visible: readonly number[],
+export function impliedCaret(rectOf: RectOf, visible: ArrayLike<number>,
                              cam: View, viewport: { width: number; height: number }):
                              number | null {
   const transform = viewToTransform(cam);
   const centerX = viewport.width / 2;
   const centerY = viewport.height / 2;
   let best: { i: number; area: number; distSq: number } | null = null;
-  for (const i of visible) {
-    const r = rects[i];
+  for (let k = 0; k < visible.length; k++) {
+    const i = visible[k]!;
+    const r = rectOf(i);
     if (!r) continue;
     const [dx, dy] = worldToScreen(r.x, r.y, transform);
     const dw = r.w * cam.scale.x;
@@ -45,15 +49,15 @@ const CROSS_PENALTY = 3;
 /** The nearest cell whose center lies in `direction` from `from`'s -- scored
  *  by distance along the direction plus a penalty for drifting across it,
  *  not by array position. `null` when no cell lies that way at all. */
-function geometricNeighbor(rects: readonly Rect[], from: number,
+function geometricNeighbor(rectOf: RectOf, count: number, from: number,
                            direction: Direction): number | null {
-  const cur = rects[from];
+  const cur = rectOf(from);
   if (!cur) return null;
   const c0 = center(cur);
   let best: { i: number; score: number } | null = null;
-  for (let i = 0; i < rects.length; i++) {
+  for (let i = 0; i < count; i++) {
     if (i === from) continue;
-    const r = rects[i];
+    const r = rectOf(i);
     if (!r) continue;
     const c = center(r);
     let primary: number;
@@ -71,18 +75,21 @@ function geometricNeighbor(rects: readonly Rect[], from: number,
   return best ? best.i : null;
 }
 
-/** The caret's next index moving `direction` from `from`.
+/** The caret's next position moving `direction` from `from`.
  *
  *  Geometric first -- the nearest cell that direction, not `from +- 1` --
  *  because a grouped layout inserts whitespace that grid arithmetic can't
  *  see. Left/right fall back to array order at a row's end, the one
  *  continuation a reader means by "wrap"; up/down have no such reading and
  *  return `null` instead of guessing. */
-export function adjacent(rects: readonly Rect[], from: number,
+export function adjacent(rectOf: RectOf, count: number, from: number,
                          direction: Direction): number | null {
-  const geo = geometricNeighbor(rects, from, direction);
+  const geo = geometricNeighbor(rectOf, count, from, direction);
   if (geo !== null) return geo;
-  if (direction === 'right') return from + 1 < rects.length ? from + 1 : null;
+  if (direction === 'right') return from + 1 < count ? from + 1 : null;
   if (direction === 'left') return from - 1 >= 0 ? from - 1 : null;
   return null;
 }
+
+/** A list of rects as a `RectOf`. */
+export const rectsOf = (rects: readonly Rect[]): RectOf => (i) => rects[i];

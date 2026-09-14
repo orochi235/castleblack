@@ -112,11 +112,17 @@ function position(cell: Cell, mode: MeasuredMode): number | null {
   return Math.log10(Math.max(1, v)) / MAX_LOG[mode];
 }
 
+/** The field `cellValue` reads for each mode. */
+const VALUE_FIELD: Record<MeasuredMode, string> = {
+  secs: 'secs', year: 'year_from', sets: 'sets', colors: 'colors',
+};
+
 const tints: TintDef<Cell>[] = MEASURED_MODES.map((mode) => ({
   key: mode,
   label: TINT_LABEL[mode],
   scaleLabel: SCALE_LABEL[mode],
   log: SCALE_IS_LOG[mode],
+  reads: [VALUE_FIELD[mode]],
   t: (cell) => position(cell, mode),
   raw: (cell) => cellValue(cell, mode),
   at: (t) => scaleAt(mode, t),
@@ -135,7 +141,7 @@ export const BRICK_ICONS: CorpusSpec<Cell> = {
   })),
   tags: 'has(item.tags) ? item.tags : []',
   tagAxes: BADGE_AXES,
-  facets: [{ key: 'category', label: 'category', of: { hook: 'category' } }],
+  facets: [{ key: 'category', label: 'category', of: { hook: 'category', reads: ['category'] } }],
   washes: "has(item.tags) && ('retired' in item.tags || 'replaced' in item.tags)",
   badges,
   captions: [

@@ -3,7 +3,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent,
 } from 'react';
 import {
-  clientToCanvas, viewToTransform, worldToScreen, useDecayLoop, usePinchGesture,
+  clientToCanvas, screenToWorld, viewToTransform, worldToScreen, useDecayLoop, usePinchGesture,
   viewportDragPanAction, zoomAt,
   type InvocationCtx, type OngoingHandle, type View,
 } from '@weasel-js/core';
@@ -13,15 +13,14 @@ import type { CompiledSpec } from './cel';
 import type { Facts } from './derive';
 import { cornerBadgeAt, DEFAULT_WASH, drawPaintCommand, type DrawOptions } from './draw2d';
 import { scenePainter, type SceneWallPainter } from './drawScene';
-import type { Band, Rect } from './layout';
-import { paintCommands, type Appearance } from './paint';
+import { positionAt, rectAt, visiblePositions, type Laid } from './layout';
+import { paintCommands, type Appearance, type PaintCommand } from './paint';
 import { defaultPalette, readPalette, type Palette } from './palette';
 import { pinchStep } from './pinch';
 import { centerReveal, panToReveal } from './reveal';
 import type { Item } from './schema';
 import type { SheetManifest } from './sheet';
 import type { RampName } from './tint';
-import { visibleRange } from './visible';
 import './Wall.css';
 
 const ARROW_DIRECTION: Record<string, Direction> = {
@@ -29,14 +28,15 @@ const ARROW_DIRECTION: Record<string, Direction> = {
 };
 
 export const DEFAULT_DRAG_THRESHOLD_PX = 4;
+/** Past this many cells on screen the wall draws nothing cell by cell. */
+export const MAX_DRAWN_CELLS = 50_000;
 
 export interface WallProps<T extends Item> {
   compiled: CompiledSpec<T>;
   facts: Facts<T>;
-  /** Rows of `facts.items` in view order. `rects`, the caret and every
-   *  position below are indexes into this. */
-  order: readonly number[];
-  rects: Rect[];
+  /** Where every cell sits. `laid.order` holds the rows in view order, and
+   *  the caret and every position below index into it. */
+  laid: Laid;
   cam: View;
   sheet: HTMLImageElement | null;
   manifest: SheetManifest | null;
@@ -59,7 +59,6 @@ export interface WallProps<T extends Item> {
   dragThresholdPx?: number;
   appearance?: Appearance;
   stale?: boolean;
-  bands?: Band[];
   /** How much sharper than `devicePixelRatio` to draw, for a pinch the page
    *  cannot otherwise see. */
   pixelScale?: number;
@@ -88,11 +87,11 @@ const NOOP_MODIFIERS = { alt: false, ctrl: false, meta: false, shift: false };
 
 /** The wall's rendering surface: a canvas the host positions and sizes. */
 export function Wall<T extends Item>({
-  compiled, facts, order, rects, cam, sheet, manifest, loose, vector, width, height,
+  compiled, facts, laid, cam, sheet, manifest, loose, vector, width, height,
   highlight, highlightTag, explicitCaret, onExplicitCaretChange,
   onPan, onPick, onOpen, onDragStart,
   dragThresholdPx = DEFAULT_DRAG_THRESHOLD_PX,
-  pixelScale = 1, appearance, bands, tint, gradient, stale = false,
+  pixelScale = 1, appearance, tint, gradient, stale = false,
   sceneRenderer = false, linkedBadges, linkTarget, cssRoot = '--wall',
   drawMark, washColor = DEFAULT_WASH, ground, describe,
 }: WallProps<T>) {
@@ -148,21 +147,34 @@ export function Wall<T extends Item>({
   const loupe = useLoupe({ capability: loupeCapability, hostRef: ref, enabled: false });
   const lensRef = useRef<HTMLCanvasElement>(null);
 
+  const order = laid.order;
+  const rectOf = useMemo(() => (p: number) => rectAt(laid, p), [laid]);
   const visible = useMemo(
-    () => visibleRange(rects, cam, { width, height }), [rects, cam, width, height]);
+    () => visiblePositions(laid, cam, { width, height }, MAX_DRAWN_CELLS) ?? [],
+    [laid, cam, width, height]);
   const implied = useMemo(
-    () => impliedCaret(rects, visible, cam, { width, height }),
-    [rects, visible, cam, width, height]);
-  const positionOf = useMemo(() => new Map(order.map((row, i) => [row, i])), [order]);
+    () => impliedCaret(rectOf, visible, cam, { width, height }),
+    [rectOf, visible, cam, width, height]);
+  // Built the first time a link is followed: a map over a million rows is not free.
+  const positions = useRef<{ laid: Laid; of: Int32Array } | null>(null);
+  const positionOf = (row: number): number | undefined => {
+    if (positions.current?.laid !== laid) {
+      const of = new Int32Array(facts.store.length).fill(-1);
+      order.forEach((r, p) => { of[r] = p; });
+      positions.current = { laid, of };
+    }
+    const p = positions.current.of[row];
+    return p === undefined || p < 0 ? undefined : p;
+  };
   const linked = useMemo(() => new Set(linkedBadges ?? []), [linkedBadges]);
 
   const followLink = (position: number, tag: string): boolean => {
     const target = linkTarget?.(order[position]!, tag);
     if (target == null) return false;
-    const next = positionOf.get(target);
+    const next = positionOf(target);
     if (next == null) return false;
     onExplicitCaretChange(next);
-    const rect = rects[next];
+    const rect = rectAt(laid, next);
     // Centered: the target is elsewhere in the wall entirely, and landing it
     // against an edge leaves the reader hunting for it.
     if (rect) onPan(centerReveal(rect, camRef.current, { width, height }));
@@ -174,11 +186,12 @@ export function Wall<T extends Item>({
   // the pointer whenever nobody is navigating by keyboard.
   const caretDrawn = explicitCaret;
 
-  const commandsFor = (at: View, overlayOnly = false) => paintCommands({
-    compiled, facts, order, rects, visible, cam: at, manifest, palette, loose, vector,
-    highlight, highlightTag, caret: overlayOnly ? null : caretDrawn,
-    appearance, bands, tint, gradient, stale, ground,
-  });
+  const commandsFor = (at: View, overlayOnly = false, only: ArrayLike<number> = visible) =>
+    paintCommands({
+      compiled, facts, order, rect: rectOf, visible: only, cam: at, manifest, palette, loose,
+      vector, highlight, highlightTag, caret: overlayOnly ? null : caretDrawn,
+      appearance, bands: laid.bands, tint, gradient, stale, ground,
+    });
 
   // Weasel takes a texture, not an <img>. Never closed: a paint may still hold
   // the previous one when a slot swap replaces it.
@@ -221,8 +234,8 @@ export function Wall<T extends Item>({
     ctx.imageSmoothingEnabled = true;
     for (const cmd of cmds) drawPaintCommand(ctx, cmd, sheet, palette, options);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compiled, facts, order, rects, visible, cam, sheet, manifest, palette, loose, vector,
-      highlight, highlightTag, caretDrawn, appearance, bands, tint, gradient, stale, ground,
+  }, [compiled, facts, laid, rectOf, visible, cam, sheet, manifest, palette, loose, vector,
+      highlight, highlightTag, caretDrawn, appearance, tint, gradient, stale, ground,
       width, height, pixelScale, sceneRenderer, sheetBitmap, options]);
 
   // The lens magnifies what is already on screen, so it redraws the same
@@ -246,30 +259,26 @@ export function Wall<T extends Item>({
       drawPaintCommand(ctx, cmd, sheet, palette, { ...options, offset });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loupe.visible, loupe.aim, loupe.factor, loupeCapability.diameter, compiled, facts, order,
-      rects, visible, cam, sheet, manifest, palette, loose, vector, highlight, caretDrawn,
-      appearance, bands, tint, gradient, stale, width, height, options]);
+  }, [loupe.visible, loupe.aim, loupe.factor, loupeCapability.diameter, compiled, facts, laid,
+      rectOf, visible, cam, sheet, manifest, palette, loose, vector, highlight, caretDrawn,
+      appearance, tint, gradient, stale, width, height, options]);
 
   const hitTest = (e: { clientX: number; clientY: number; currentTarget: HTMLCanvasElement }) => {
     const [sx, sy] = clientToCanvas(e.currentTarget, e.clientX, e.clientY);
+    const [wx, wy] = screenToWorld(sx, sy, viewToTransform(cam));
+    const position = positionAt(laid, wx, wy);
+    if (position === null || order[position] === undefined) return null;
     // `appearance` and not the default: a click must not find a badge the
     // wall never drew.
-    const cmds = commandsFor(cam, true);
-    for (let i = cmds.length - 1; i >= 0; i--) {
-      const c = cmds[i]!;
-      if (c.kind === 'label') continue;
-      if (sx >= c.dx && sx <= c.dx + c.dw && sy >= c.dy && sy <= c.dy + c.dh) {
-        const position = visible[i];
-        if (position === undefined || order[position] === undefined) return null;
-        const badge = (('badges' in c ? c.badges : undefined) ?? []).find((b) => {
-          if (!linked.has(b.tag)) return false;
-          const { cx, cy, radius } = cornerBadgeAt(b, c);
-          return Math.hypot(sx - cx, sy - cy) <= radius;
-        });
-        return { position, row: order[position]!, at: { x: sx, y: sy }, badge };
-      }
-    }
-    return null;
+    const c = commandsFor(cam, true, [position])
+      .find((cmd): cmd is Exclude<PaintCommand, { kind: 'label' }> => cmd.kind !== 'label');
+    if (!c) return null;
+    const badge = (('badges' in c ? c.badges : undefined) ?? []).find((b) => {
+      if (!linked.has(b.tag)) return false;
+      const { cx, cy, radius } = cornerBadgeAt(b, c);
+      return Math.hypot(sx - cx, sy - cy) <= radius;
+    });
+    return { position, row: order[position]!, at: { x: sx, y: sy }, badge };
   };
 
   const dragCtx = (screenDelta: { x: number; y: number }): InvocationCtx => ({
@@ -340,16 +349,16 @@ export function Wall<T extends Item>({
     if (direction) {
       e.preventDefault();
       if (caretPosition == null) return;
-      const next = adjacent(rects, caretPosition, direction);
+      const next = adjacent(rectOf, order.length, caretPosition, direction);
       if (next == null) return;
       onExplicitCaretChange(next);
-      const rect = rects[next];
+      const rect = rectAt(laid, next);
       if (rect) onPan(panToReveal(rect, camRef.current, { width, height }));
       return;
     }
     if (e.key === 'Enter') {
       if (caretPosition == null) return;
-      const rect = rects[caretPosition];
+      const rect = rectAt(laid, caretPosition);
       const row = order[caretPosition];
       if (!rect || row === undefined) return;
       const [sx, sy] = worldToScreen(rect.x + rect.w / 2, rect.y + rect.h / 2,
@@ -361,7 +370,7 @@ export function Wall<T extends Item>({
   };
 
   const announced = caretDrawn != null && order[caretDrawn] !== undefined
-    ? (describe ?? ((row: number) => facts.items[row]?.id ?? ''))(order[caretDrawn]!)
+    ? (describe ?? ((row: number) => facts.store.id(row)))(order[caretDrawn]!)
     : '';
 
   return (

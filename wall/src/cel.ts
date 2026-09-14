@@ -1,10 +1,15 @@
 import { celEnv, celMap, isCelError, isCelList, parse, plan } from '@bufbuild/cel';
 import { strings } from '@bufbuild/cel/ext';
+import { readsOf } from './reads';
 import type { CorpusSpec, Item, Projection } from './schema';
 import { byPrecedence, expandStates, type StateSpec } from './states';
 
-export type Predicate<T> = (item: T) => boolean;
-export type Value<T> = (item: T) => unknown;
+/** `reads` is the item fields the rule uses, or null when that cannot be
+ *  told; `derive` groups rows by those fields' values. */
+export type Predicate<T> = ((item: T) => boolean) & { reads: string[] | null };
+export type Value<T> = ((item: T) => unknown) & { reads: string[] | null };
+
+const withReads = <F extends object>(fn: F, reads: string[] | null) => Object.assign(fn, { reads });
 
 export interface CompileError {
   table: string;
@@ -31,7 +36,7 @@ export interface CompiledSpec<T extends Item> {
   filters: Record<string, Predicate<T>>;
   classes: Record<string, Predicate<T>>;
   sorts: Record<string, Value<T>>;
-  tags: ((item: T) => string[]) | null;
+  tags: (((item: T) => string[]) & { reads: string[] | null }) | null;
   washes: Predicate<T> | null;
   facets: Record<string, Value<T>>;
   captions: Record<string, Value<T>>;
@@ -76,8 +81,9 @@ export function compileSpec<T extends Item>(spec: CorpusSpec<T>):
 
   const program = (table: string, key: string, expr: string): Value<T> => {
     try {
-      const run = plan(ENV, parse(expr));
-      return (item) => {
+      const parsed = parse(expr);
+      const run = plan(ENV, parsed);
+      return withReads((item: T) => {
         const out = run({ item: bind(item) } as unknown as Parameters<typeof run>[0]);
         if (!isCelError(out)) return plain(out);
         // A field the feed does not send is absent, not fatal: the server can
@@ -88,34 +94,34 @@ export function compileSpec<T extends Item>(spec: CorpusSpec<T>):
           console.warn(`${where}: ${out.message}; reading it as absent`);
         }
         return FAILED;
-      };
+      }, readsOf(parsed));
     } catch (e) {
       errors.push({ table, key, expr, message: e instanceof Error ? e.message : String(e) });
-      return () => FAILED;
+      return withReads(() => FAILED, []);
     }
   };
   const predicate = (table: string, key: string, expr: string): Predicate<T> => {
     const run = program(table, key, expr);
-    return (item) => run(item) === true;
+    return withReads((item: T) => run(item) === true, run.reads);
   };
   const value = (table: string, key: string, expr: string): Value<T> => {
     const run = program(table, key, expr);
-    return (item) => {
+    return withReads((item: T) => {
       const out = run(item);
       return out === FAILED ? null : out;
-    };
+    }, run.reads);
   };
   const projection = (table: string, key: string, p: Projection): Value<T> => {
     if ('expr' in p) return value(table, key, p.expr);
     const hook = spec.hooks?.[p.hook];
     if (!hook) {
       errors.push({ table, key, expr: `hook ${p.hook}`, message: `no hook named ${p.hook}` });
-      return () => null;
+      return withReads(() => null, []);
     }
-    return (item) => hook(item) ?? null;
+    return withReads((item: T) => hook(item) ?? null, p.reads ?? null);
   };
-  const table = <D extends { key: string }>(name: string, defs: readonly D[],
-                                            make: (d: D) => (item: T) => unknown) =>
+  const table = <D extends { key: string }, F>(name: string, defs: readonly D[],
+                                               make: (d: D) => F): Record<string, F> =>
     Object.fromEntries(defs.map((d) => [d.key, make(d)]));
 
   let states: StateSpec[] = [];
@@ -145,12 +151,24 @@ export function compileSpec<T extends Item>(spec: CorpusSpec<T>):
   };
   if (spec.tags !== undefined) {
     const tags = value('tags', 'tags', spec.tags);
-    compiled.tags = (item) => {
+    compiled.tags = withReads((item: T) => {
       const out = tags(item);
       return Array.isArray(out) ? out as string[] : [];
-    };
+    }, tags.reads);
   }
   compiled.facets = table('facets', spec.facets ?? [], (f) => projection('facets', f.key, f.of));
+  for (const f of spec.facets ?? []) {
+    if ('hook' in f.of && !Array.isArray(f.of.reads)) {
+      errors.push({ table: 'facets', key: f.key, expr: `hook ${f.of.hook}`,
+                    message: 'a facet hook needs reads: the item fields it uses' });
+    }
+  }
+  for (const t of spec.tints ?? []) {
+    if (!Array.isArray(t.reads)) {
+      errors.push({ table: 'tints', key: t.key, expr: 't',
+                    message: 'a tint needs reads: the item fields t uses' });
+    }
+  }
   compiled.captions = table('captions', spec.captions ?? [],
                             (c) => projection('captions', c.key, c.text));
   if (spec.glyph) compiled.glyph = projection('glyph', 'glyph', spec.glyph);

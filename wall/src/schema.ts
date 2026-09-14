@@ -7,7 +7,9 @@
 import type { Marks } from './marks';
 
 export type Expr = string;
-export type Projection = { expr: Expr } | { hook: string };
+/** A hook's `reads` names the item fields it uses. A facet hook must give it,
+ *  so the wall can evaluate it once per distinct value of those fields. */
+export type Projection = { expr: Expr } | { hook: string; reads?: string[] };
 
 /** What the wall requires of an item. Hosts extend it. */
 export interface Item {
@@ -104,6 +106,8 @@ export interface TintDef<T> {
   /** What the ramp measures, as a reader would say it. */
   scaleLabel: string;
   log: boolean;
+  /** The item fields `t` uses; it is called with an object holding only these. */
+  reads: string[];
   /** Where the item sits on the ramp, 0..1, or null for no value. */
   t(item: T): number | null;
   /** The unnormalized value, for a card to report. */

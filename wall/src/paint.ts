@@ -1,6 +1,6 @@
 import { viewToTransform, worldToScreen, type View } from '@weasel-js/core';
 import type { CompiledSpec } from './cel';
-import type { Facts } from './derive';
+import { captionOf, glyphOf, markOf, stateKey, tagsOf, type Facts } from './derive';
 import type { Band, Rect } from './layout';
 import type { CellStyle, Palette } from './palette';
 import type { Badge, BadgeDef, Item, Shape } from './schema';
@@ -77,12 +77,13 @@ export type PaintCommand =
 export interface PaintInput<T extends Item> {
   compiled: CompiledSpec<T>;
   facts: Facts<T>;
-  /** Rows of `facts.items` in view order; `rects` is parallel to it. Defaults
-   *  to every row in item order. */
-  order?: readonly number[];
-  rects: Rect[];
+  /** Rows of the store in view order: `order[p]` is drawn at position `p`.
+   *  Defaults to every row in store order. */
+  order?: ArrayLike<number>;
+  /** The cell at a position. */
+  rect: (position: number) => Rect | undefined;
   /** Positions in `order` to draw. */
-  visible: number[];
+  visible: ArrayLike<number>;
   cam: View;
   manifest: SheetManifest | null;
   palette: Palette;
@@ -116,7 +117,7 @@ function borderWidthFor(weight: CellStyle['weight'], px: number, a: Appearance):
 /** What to draw this frame, as data: which cells, from where, in what color. */
 export function paintCommands<T extends Item>(input: PaintInput<T>): PaintCommand[] {
   const {
-    compiled, facts, order, rects, visible, cam, manifest, palette, loose, vector,
+    compiled, facts, order, rect, visible, cam, manifest, palette, loose, vector,
     highlight = null, highlightTag = null, bands, caret = null,
     appearance = DEFAULT_APPEARANCE, tint = STATUS, gradient = 'ember',
     stale = false, ground: plainGround = DEFAULT_GROUND,
@@ -132,7 +133,7 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
     if (px < LABEL_MIN_PX) return [];
     const out: Caption[] = [];
     for (const def of captionDefs) {
-      const text = facts.captions[def.key]![row];
+      const text = captionOf(facts, def.key, row);
       if (text) {
         out.push({ text, corner: def.corner, ink,
                    weight: def.weight === 'id' ? WEIGHT_ID : WEIGHT_TEXT });
@@ -140,14 +141,14 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
     }
     return out;
   };
-  const badgesOf = (row: number, slot: BadgeDef['slot']) => facts.tags[row]!
+  const badgesOf = (row: number, slot: BadgeDef['slot']) => tagsOf(facts, row)
     .map((tag) => defs.get(tag))
     .filter((d): d is BadgeDef => d !== undefined && d.slot === slot);
   const badge = (d: BadgeDef): Badge => ({ tag: d.tag, ...d.art });
   const cornerBadges = (row: number, px: number, labelMinPx: number): Badge[] => {
     if (px < BADGE_MIN_PX) return [];
     return badgesOf(row, 'corner')
-      .filter((d) => !(d.yieldsTo && px >= labelMinPx && facts.captions[d.yieldsTo]?.[row]))
+      .filter((d) => !(d.yieldsTo && px >= labelMinPx && captionOf(facts, d.yieldsTo, row)))
       .map(badge);
   };
   const stripBadges = (row: number, px: number): Badge[] =>
@@ -155,19 +156,19 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
 
   const out: PaintCommand[] = [];
   const transform = viewToTransform(cam);
-  for (const i of visible) {
+  for (let k = 0; k < visible.length; k++) {
+    const i = visible[k]!;
     const row = order ? order[i] : i;
-    const rect = rects[i];
-    if (row === undefined || rect === undefined || row >= facts.items.length) continue;
-    const item = facts.items[row]!;
-    const [dx, dy] = worldToScreen(rect.x, rect.y, transform);
-    const dw = rect.w * cam.scale.x;
-    const dh = rect.h * cam.scale.y;
+    const cell = rect(i);
+    if (row === undefined || cell === undefined || row >= facts.store.length) continue;
+    const [dx, dy] = worldToScreen(cell.x, cell.y, transform);
+    const dw = cell.w * cam.scale.x;
+    const dh = cell.h * cam.scale.y;
     const isCaret = caret !== null && i === caret ? true : undefined;
-    const key = facts.state[row]!;
+    const key = stateKey(facts, row);
     const state = states.get(key)!;
     const dimmed = (highlight !== null && state.family !== highlight)
-      || (highlightTag !== null && !facts.tags[row]!.includes(highlightTag));
+      || (highlightTag !== null && !tagsOf(facts, row).includes(highlightTag));
     const alpha = dimmed ? appearance.dimAlpha : undefined;
     // A drawn cell carries its state in the ground, having every pixel around
     // its ink to spare; an undrawn one carries it in the ring.
@@ -185,7 +186,9 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
       : appearance.wash && facts.washed[row] ? appearance.washStrength
       : undefined;
 
-    const image = vector?.get(item.id) ?? loose?.get(item.id);
+    // Decoding an id is the costly read on a column store, so only when used.
+    const id = vector?.size || loose?.size || manifest ? facts.store.id(row) : '';
+    const image = vector?.get(id) ?? loose?.get(id);
     if (image) {
       out.push({ kind: 'image', dx, dy, dw, dh, image, ground,
                  alpha, caret: isCaret, badges, strip, captions, wash });
@@ -193,19 +196,19 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
     }
     // Drawn whenever the sheet has a tile, stale or not: freshness decides
     // whether to fetch a better one, never whether to show a picture.
-    const box = manifest && hasTile(manifest, item) ? sourceBox(manifest, item.index) : null;
+    const box = manifest && hasTile(manifest, { id }) ? sourceBox(manifest, facts.store.index(row)) : null;
     if (box) {
       out.push({ kind: 'sprite', dx, dy, dw, dh, ...box, ground,
                  alpha, caret: isCaret, badges, strip, captions, wash });
       continue;
     }
     const quiet = state.quiet === true;
-    const mark = quiet ? facts.mark[row] ?? undefined : undefined;
+    const mark = quiet ? markOf(facts, row) ?? undefined : undefined;
     out.push({
       kind: 'fill', dx, dy, dw, dh, fill: style.fill, border, borderWidth,
       shape: state.shape,
-      glyph: quiet && dw >= GLYPH_MIN_PX && !facts.mark[row]
-        ? facts.glyph[row] ?? undefined : undefined,
+      glyph: quiet && dw >= GLYPH_MIN_PX && !mark
+        ? glyphOf(facts, row) ?? undefined : undefined,
       mark,
       captions: quiet ? undefined
         : appearance.showCaptions ? captionsFor(row, dw, CAPTION_ON_FILL) : NO_CAPTIONS,
@@ -230,6 +233,8 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
 export function tally<T extends Item>(compiled: CompiledSpec<T>,
                                       facts: Facts<T>): Record<string, number> {
   const out = Object.fromEntries(compiled.states.map((s) => [s.key, 0]));
-  for (const key of facts.state) out[key] = (out[key] ?? 0) + 1;
+  const counts = new Uint32Array(compiled.states.length);
+  for (const s of facts.state) counts[s]!++;
+  compiled.states.forEach((s, i) => { out[s.key] = counts[i]!; });
   return out;
 }

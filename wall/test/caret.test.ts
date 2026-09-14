@@ -1,7 +1,10 @@
 import { expect, it } from 'vitest';
-import { adjacent, impliedCaret } from '../src/caret';
+import { adjacent, impliedCaret, rectsOf } from '../src/caret';
 import { blockLayout } from '../src/grouped';
-import type { Rect } from '../src/layout';
+import { compile } from '../src/cel';
+import { derive } from '../src/derive';
+import { rectAt, type Rect } from '../src/layout';
+import type { CorpusSpec, Item } from '../src/schema';
 
 // A 3x3 grid, pitch 12 (cell 10, gap 2) -- rows major, matching gridLayout.
 const rect = (col: number, row: number): Rect =>
@@ -17,7 +20,13 @@ for (let row = 0; row < 3; row++) {
 
 const cam = { x: 0, y: 0, scale: { x: 1, y: 1 } };
 
-interface Item { id: string; category: string }
+interface Cat extends Item { category: string }
+const CATS: CorpusSpec<Cat> = {
+  states: [{ key: 'ok', label: 'ok', fill: '#000000', border: null, weight: null,
+             shape: 'square', precedence: 1, match: 'true' }],
+  filters: [{ key: 'all', label: 'all', keep: 'true' }], classes: [],
+  sorts: [{ key: 'id', label: 'id', value: 'item.id', desc: false }],
+};
 
 it('impliedCaret prefers a whole cell over a clipped one', () => {
   const rects: Rect[] = [
@@ -26,7 +35,7 @@ it('impliedCaret prefers a whole cell over a clipped one', () => {
   ];
   // Viewport cuts off at x=5, so rect 0 only shows half its area.
   const view = { x: 5, y: 0, scale: { x: 1, y: 1 } };
-  expect(impliedCaret(rects, [0, 1], view, { width: 20, height: 10 })).toBe(1);
+  expect(impliedCaret(rectsOf(rects), [0, 1], view, { width: 20, height: 10 })).toBe(1);
 });
 
 it('impliedCaret prefers the cell nearest the viewport center among equal areas', () => {
@@ -37,27 +46,27 @@ it('impliedCaret prefers the cell nearest the viewport center among equal areas'
   // Both cells fully on screen (equal area). A 12-wide viewport centers at
   // x=6, close to rect 0's center (5) and far from rect 1's (45).
   const view = { x: 0, y: 0, scale: { x: 1, y: 1 } };
-  expect(impliedCaret(rects, [0, 1], view, { width: 12, height: 10 })).toBe(0);
+  expect(impliedCaret(rectsOf(rects), [0, 1], view, { width: 12, height: 10 })).toBe(0);
 });
 
 it('impliedCaret is null when nothing is visible', () => {
-  expect(impliedCaret(grid3x3, [], cam, { width: 100, height: 100 })).toBeNull();
+  expect(impliedCaret(rectsOf(grid3x3), [], cam, { width: 100, height: 100 })).toBeNull();
 });
 
 it('adjacent finds the neighbor to the right', () => {
-  expect(adjacent(grid3x3, 4, 'right')).toBe(5);
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 4, 'right')).toBe(5);
 });
 
 it('adjacent finds the neighbor to the left', () => {
-  expect(adjacent(grid3x3, 4, 'left')).toBe(3);
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 4, 'left')).toBe(3);
 });
 
 it('adjacent finds the neighbor above', () => {
-  expect(adjacent(grid3x3, 4, 'up')).toBe(1);
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 4, 'up')).toBe(1);
 });
 
 it('adjacent finds the neighbor below', () => {
-  expect(adjacent(grid3x3, 4, 'down')).toBe(7);
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 4, 'down')).toBe(7);
 });
 
 it('picks the same-row neighbor over a nearer diagonal one', () => {
@@ -66,53 +75,53 @@ it('picks the same-row neighbor over a nearer diagonal one', () => {
     { x: 30, y: 0, w: 10, h: 10 },  // 1: same row, center (35, 5) -- dist 30
     { x: 15, y: 8, w: 10, h: 10 },  // 2: diagonal, center (20, 13) -- dist ~17, nearer
   ];
-  expect(adjacent(rects, 0, 'right')).toBe(1);
+  expect(adjacent(rectsOf(rects), rects.length, 0, 'right')).toBe(1);
 });
 
 it('wraps from the end of a row to the start of the next', () => {
   // Index 2 is the top-right corner -- nothing geometrically to its right.
-  expect(adjacent(grid3x3, 2, 'right')).toBe(3);
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 2, 'right')).toBe(3);
 });
 
 it('wraps from the start of a row back to the end of the previous', () => {
   // Index 3 is the start of row two -- nothing geometrically to its left.
-  expect(adjacent(grid3x3, 3, 'left')).toBe(2);
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 3, 'left')).toBe(2);
 });
 
 it('returns null going up from the top row', () => {
-  expect(adjacent(grid3x3, 1, 'up')).toBeNull();
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 1, 'up')).toBeNull();
 });
 
 it('returns null going down from the bottom row', () => {
-  expect(adjacent(grid3x3, 7, 'down')).toBeNull();
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 7, 'down')).toBeNull();
 });
 
 it('returns null going right from the very last cell', () => {
-  expect(adjacent(grid3x3, 8, 'right')).toBeNull();
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 8, 'right')).toBeNull();
 });
 
 it('returns null going left from the very first cell', () => {
-  expect(adjacent(grid3x3, 0, 'left')).toBeNull();
+  expect(adjacent(rectsOf(grid3x3), grid3x3.length, 0, 'left')).toBeNull();
 });
 
 it('crosses the gutter between two blocks', () => {
   // Grouping puts whitespace between blocks, and a caret that moved by index
-  // arithmetic would stop at the edge of one. These are the real rects
+  // arithmetic would stop at the edge of one. These are the real cells
   // `blockLayout` lays out for two four-item groups, three columns each.
-  const items: Item[] = [
-    ...['a0', 'a1', 'a2', 'a3'].map((id) => ({ id, category: 'A' })),
-    ...['b0', 'b1', 'b2', 'b3'].map((id) => ({ id, category: 'B' })),
-  ];
-  const { rects } = blockLayout((c: Item) => c.category, [])(
-    items, { cell: 10, gap: 2, cols: 12 });
+  const items: Cat[] = ['a0', 'a1', 'a2', 'a3', 'b0', 'b1', 'b2', 'b3'].map(
+    (id, index) => ({ id, index, sha: null, category: id[0]!.toUpperCase() }));
+  const facts = derive(compile(CATS), items);
+  const laid = blockLayout<Cat>({ reads: ['category'], of: (c) => c.category }, [])(
+    { rows: Uint32Array.from(items, (_, i) => i), facts }, { cell: 10, gap: 2, cols: 12 });
+  const rectOf = (p: number) => rectAt(laid, p);
 
   // Block A's top-right cell: nothing of its own block lies to its right.
   const from = 2;
-  const next = adjacent(rects, from, 'right');
+  const next = adjacent(rectOf, laid.order.length, from, 'right');
 
   expect(next).not.toBeNull();
-  expect(rects[next!]!.x).toBeGreaterThan(rects[from]!.x + rects[from]!.w);
-  expect(items[next!]!.category).toBe('B');
+  expect(rectOf(next!)!.x).toBeGreaterThan(rectOf(from)!.x + rectOf(from)!.w);
+  expect(items[laid.order[next!]!]!.category).toBe('B');
   // Index arithmetic would have answered 3, which sits below-left in block A.
   expect(next).not.toBe(from + 1);
 });

@@ -37,7 +37,7 @@ export function translate(input: LegacyInput): PaintInput<Cell> {
   return {
     compiled,
     facts: factsFor(input.cells),
-    rects: input.rects,
+    rect: (i) => input.rects[i],
     visible: input.visible,
     cam: input.cam,
     manifest: input.manifest,

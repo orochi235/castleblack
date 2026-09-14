@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compile } from '../src/cel';
 import { derive } from '../src/derive';
-import { gridLayout } from '../src/layout';
+import { gridLayout, rectAt } from '../src/layout';
 import {
   DEFAULT_APPEARANCE, paintCommands, tally, type PaintCommand, type PaintInput,
 } from '../src/paint';
@@ -25,7 +25,8 @@ function paint(items: Thing[], size = 120,
   return paintCommands({
     compiled,
     facts: derive(compiled, items),
-    rects: gridLayout(items, { cell: size, gap: 4, cols: 4 }).rects,
+    rect: (p) => rectAt(gridLayout({ rows: Uint32Array.from(items, (_, i) => i) },
+                                   { cell: size, gap: 4, cols: 4 }), p),
     visible: items.map((_, i) => i),
     cam: { x: 0, y: 0, scale: { x: 1, y: 1 } },
     manifest: manifest(items),

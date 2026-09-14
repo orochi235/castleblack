@@ -10,17 +10,18 @@ import { CacheFailureButton } from './CacheFailureButton';
 import { cacheReport } from './cacheReport';
 import { compileSpec, type CompiledSpec, type CompileError } from './cel';
 import { clampWallView, DEFAULT_BLANK_PX, sameView } from './clamp';
-import { derive, rederive, type Facts } from './derive';
+import { derive, rederive, rowOfId, type Facts } from './derive';
 import type { DrawOptions } from './draw2d';
 import { ItemCard } from './ItemCard';
-import { gridLayout, type Layout } from './layout';
+import { gridLayout, visibleCount, visiblePositions, type Layout } from './layout';
 import { Legend } from './Legend';
-import { levelFor, pickLevel, SHEET_LEVELS } from './levels';
+import { levelFor, LOOSE_LEVEL, pickLevel, SHEET_LEVELS } from './levels';
 import { paramSchema } from './params';
 import type { Appearance } from './paint';
 import type { CorpusSpec, Item } from './schema';
 import { applySelection } from './select';
-import { staleCount } from './sheet';
+import { staleCountOf } from './sheet';
+import type { ItemStore } from './store';
 import { Sidebar, type SidebarSelection } from './Sidebar';
 import { STATUS } from './tint';
 import type { SlotUrls } from './urls';
@@ -30,7 +31,6 @@ import { useParams } from './useParams';
 import { useSheets, type Sheet } from './useSheets';
 import { targetPxFor, useVectorThumbs, type VectorHandle } from './useVectorThumbs';
 import { useVisualViewport } from './useVisualViewport';
-import { visibleRange } from './visible';
 import { Wall } from './Wall';
 import './WallView.css';
 
@@ -41,6 +41,9 @@ const MAX_PIXEL_SCALE = 3;
  *  its scroll event lands. */
 const SLICE_PAD = 0.25;
 const NONE = { key: 'none', label: 'nothing' };
+const NO_ROWS = new Uint32Array(0);
+/** The most cells on screen that the loose and vector rungs will fetch for. */
+const MAX_THUMB_CELLS = 5_000;
 
 export interface WallGrouping<T extends Item> {
   key: string;
@@ -213,11 +216,11 @@ function WallViewBody<T extends Item>({
   // What is on screen: the newest slot whose items and sheets are both in
   // hand. A new slot's items beside the old slot's sheets would draw every
   // cell stale, so the two travel together.
-  const drawn = useRef<{ slot: string; items: T[]; sheets: Record<number, Sheet>;
+  const drawn = useRef<{ slot: string; store: ItemStore<T>; sheets: Record<number, Sheet>;
                          changed: number[] | null } | null>(null);
-  if (fetched.items && fetched.slot === loaded.slot
-      && (drawn.current?.items !== fetched.items || drawn.current.sheets !== loaded.sheets)) {
-    drawn.current = { slot: fetched.slot, items: fetched.items, sheets: loaded.sheets,
+  if (fetched.store && fetched.slot === loaded.slot
+      && (drawn.current?.store !== fetched.store || drawn.current.sheets !== loaded.sheets)) {
+    drawn.current = { slot: fetched.slot, store: fetched.store, sheets: loaded.sheets,
                       changed: drawn.current?.slot === fetched.slot ? fetched.changed : null };
   }
   const view = drawn.current;
@@ -225,56 +228,56 @@ function WallViewBody<T extends Item>({
   const drawnSlot = view?.slot ?? slot;
   const stale = view !== null && drawnSlot !== slot;
 
-  const derived = useRef<{ compiled: CompiledSpec<T>; slot: string; items: readonly T[];
+  const derived = useRef<{ compiled: CompiledSpec<T>; slot: string; store: ItemStore<T>;
                            facts: Facts<T> } | null>(null);
   const facts = useMemo(() => {
     if (!view) return null;
     const held = derived.current;
-    if (held && held.compiled === compiled && held.items === view.items) return held.facts;
+    if (held && held.compiled === compiled && held.store === view.store) return held.facts;
     let next: Facts<T>;
     if (held && held.compiled === compiled && held.slot === view.slot && view.changed
-        && held.items.length === view.items.length) {
-      rederive(compiled, held.facts, view.items, view.changed);
+        && held.store.length === view.store.length) {
+      rederive(compiled, held.facts, view.store, view.changed);
       // A new wrapper over the same columns, so everything keyed on it recomputes.
       next = { ...held.facts };
     } else {
-      next = derive(compiled, view.items);
+      next = derive(compiled, view.store);
     }
-    derived.current = { compiled, slot: view.slot, items: view.items, facts: next };
+    derived.current = { compiled, slot: view.slot, store: view.store, facts: next };
     return next;
   }, [compiled, view]);
 
   const rows = useMemo(
-    () => (facts ? applySelection(compiled, facts, selection) : []),
+    () => (facts ? applySelection(compiled, facts, selection) : NO_ROWS),
     [compiled, facts, selection]);
   // What the legend's tag rows count over: picking a tag must not zero the rest.
   const tagRows = useMemo(
     () => (facts && (selection.tags?.length ?? 0) > 0
       ? applySelection(compiled, facts, { ...selection, tags: [] }) : rows),
     [compiled, facts, selection, rows]);
-  const shownItems = useMemo(
-    () => (facts ? rows.map((r) => facts.items[r]!) : []), [facts, rows]);
-  const rowById = useMemo(
-    () => new Map((facts?.items ?? []).map((item, row) => [item.id, row])), [facts]);
 
   const facetCounts = useMemo(() => {
     const out = new Map<string, number>();
     const column = facet && facts ? facts.facets[facet.key] : undefined;
-    for (const value of column ?? []) {
-      if (value !== null) out.set(value, (out.get(value) ?? 0) + 1);
-    }
+    if (!column) return out;
+    const perCode = new Uint32Array(column.values.length);
+    for (const code of column.codes) perCode[code]!++;
+    column.values.forEach((value, code) => {
+      if (value === null || !perCode[code]) return;
+      out.set(value as string, (out.get(value as string) ?? 0) + perCode[code]!);
+    });
     return out;
   }, [facet, facts]);
 
   const layout = useMemo<Layout<T>>(() => {
     const g = groupings.find((x) => x.key === selection.grouping);
-    return g ? g.layout(selection.desc) : gridLayout;
+    return g ? g.layout(selection.desc) : gridLayout as unknown as Layout<T>;
   }, [groupings, selection.grouping, selection.desc]);
 
   const cols = params.cols > 0 ? params.cols : Math.max(1, Math.ceil(Math.sqrt(rows.length)));
   const laid = useMemo(
-    () => layout(shownItems, { cell: params.cell, gap: params.gap, cols }),
-    [layout, shownItems, cols, params.cell, params.gap]);
+    () => layout({ rows, facts: facts ?? undefined }, { cell: params.cell, gap: params.gap, cols }),
+    [layout, rows, facts, cols, params.cell, params.gap]);
 
   useEffect(() => { onChange?.({ slot, selection, opened }); }, [onChange, slot, selection, opened]);
 
@@ -335,19 +338,27 @@ function WallViewBody<T extends Item>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cellPx, size.width, size.height, params.levelUpHysteresis, params.levelDownHysteresis]);
 
+  // Only the loose and vector rungs fetch per cell, and by then few are on screen.
   const visible = useMemo(
-    () => (cam ? visibleRange(laid.rects, cam, slice) : []), [laid.rects, cam, slice]);
+    () => (cam && facts && level >= LOOSE_LEVEL
+      ? visiblePositions(laid, cam, slice, MAX_THUMB_CELLS) ?? [] : []),
+    [laid, cam, slice, level, facts]);
+  const visibleItems = useMemo(
+    () => (facts ? visible.map((p) => facts.store.get(laid.order[p]!)) : []),
+    [facts, visible, laid]);
+  const visibleAt = useMemo(() => visibleItems.map((_, i) => i), [visibleItems]);
   const looseHandle = useRef<LooseHandle | null>(null);
   const vectorHandle = useRef<VectorHandle | null>(null);
-  const loose = useLooseThumbs(shownItems, visible, level, drawnSlot, urls, looseHandle);
-  const vector = useVectorThumbs(shownItems, visible, level, drawnSlot, urls, cellPx, vectorHandle);
+  const loose = useLooseThumbs(visibleItems, visibleAt, level, drawnSlot, urls, looseHandle);
+  const vector = useVectorThumbs(visibleItems, visibleAt, level, drawnSlot, urls, cellPx,
+                                 vectorHandle);
 
   const gatherCacheReport = async () => {
-    const seen = visible.map((i) => shownItems[i]).filter((it): it is T => it !== undefined);
+    const seen = cam && facts ? visiblePositions(laid, cam, slice, MAX_THUMB_CELLS) : null;
     return cacheReport({
       slot: drawnSlot, cellPx, dpr: window.devicePixelRatio || 1, level,
-      cells: { shown: shownItems.length, visible: seen.length,
-               visibleWithSha: seen.filter((it) => it.sha).length },
+      cells: { shown: rows.length, visible: cam ? visibleCount(laid, cam, slice) : 0,
+               visibleWithSha: (seen ?? []).filter((p) => facts!.store.sha(laid.order[p]!)).length },
       sheets: SHEET_LEVELS.map((lvl) => {
         const sheet = sheets[lvl];
         return { level: lvl, loaded: sheet !== undefined,
@@ -366,16 +377,17 @@ function WallViewBody<T extends Item>({
 
   const reported = useRef('');
   useEffect(() => {
-    if (!active?.manifest || !shownItems.length) return;
+    if (!active?.manifest || !rows.length || !facts) return;
     const key = `${drawnSlot}:${active.manifest.level}`;
     if (reported.current === key) return;
     reported.current = key;
-    const { stale: behind, missing, total } = staleCount(active.manifest, shownItems);
+    const { stale: behind, missing, total } = staleCountOf(active.manifest, rows.length,
+      (i) => ({ id: facts.store.id(rows[i]!), sha: facts.store.sha(rows[i]!) }));
     if (behind + missing > total / 10) {
       console.warn(`[wall] ${drawnSlot} sheet-${active.manifest.level}: ${behind} of ${total} `
         + `cells stale, ${missing} with no tile; re-bake the slot.`);
     }
-  }, [active, shownItems, drawnSlot]);
+  }, [active, rows, facts, drawnSlot]);
 
   const appearance = useMemo<Appearance>(() => ({
     thickBorderFactor: params.thickBorderFactor, thinBorderFactor: params.thinBorderFactor,
@@ -386,8 +398,9 @@ function WallViewBody<T extends Item>({
        params.showBadges, params.showCaptions, params.wash, params.washStrength]);
 
   const itemAt = (id: string | null) => {
-    const row = id === null ? undefined : rowById.get(id);
-    return row === undefined || !facts ? undefined : facts.items[row];
+    if (id === null || !facts) return undefined;
+    const row = rowOfId(facts, id);
+    return row === undefined ? undefined : facts.store.get(row);
   };
   const cardItem = carded ? itemAt(carded.id) : undefined;
   const openedItem = itemAt(opened);
@@ -420,7 +433,7 @@ function WallViewBody<T extends Item>({
         <Sidebar compiled={compiled} selection={selection} onChange={setSelection}
                  groupings={[NONE, ...groupings]}
                  facet={facet && { ...facet, counts: facetCounts }}
-                 shown={rows.length} total={facts?.items.length ?? 0}
+                 shown={rows.length} total={facts?.store.length ?? 0}
                  paramSchema={schema} params={params} setParam={setParam}
                  resetParams={resetParams} />
         {/* Mounted from the start: the canvas size is measured on first mount. */}
@@ -440,25 +453,25 @@ function WallViewBody<T extends Item>({
             </div>
           )}
           {cam && facts && (
-            <Wall compiled={compiled} facts={facts} order={rows} rects={laid.rects} cam={cam}
+            <Wall compiled={compiled} facts={facts} laid={laid} cam={cam}
                   sheet={active?.image ?? null} manifest={active?.manifest ?? null}
                   loose={loose} vector={vector} width={size.width} height={size.height}
                   highlight={highlight} highlightTag={highlightTag}
-                  bands={laid.bands} tint={selection.tint} gradient={selection.gradient}
+                  tint={selection.tint} gradient={selection.gradient}
                   explicitCaret={explicitCaret} onExplicitCaretChange={setExplicitCaret}
                   onPan={(next) => { touched.current = true; updateCam(next); }}
-                  onPick={(row, at) => setCarded({ id: facts.items[row]!.id, at })}
+                  onPick={(row, at) => setCarded({ id: facts.store.id(row), at })}
                   onDragStart={() => setCarded(null)}
-                  onOpen={(row) => { setCarded(null); setOpened(facts.items[row]!.id); }}
+                  onOpen={(row) => { setCarded(null); setOpened(facts.store.id(row)); }}
                   dragThresholdPx={params.dragThresholdPx} appearance={appearance}
                   stale={stale} pixelScale={pixelScale} sceneRenderer={params.sceneRenderer}
                   linkedBadges={linkedBadges}
                   linkTarget={linkTarget && ((row, tag) => {
-                    const id = linkTarget(facts.items[row]!, tag);
-                    return id === null ? null : rowById.get(id) ?? null;
+                    const id = linkTarget(facts.store.get(row), tag);
+                    return id === null ? null : rowOfId(facts, id) ?? null;
                   })}
                   cssRoot={cssRoot} drawMark={drawMark} washColor={washColor} ground={ground}
-                  describe={describe && ((row) => describe(facts.items[row]!))} />
+                  describe={describe && ((row) => describe(facts.store.get(row)))} />
           )}
           {stale && (
             <p className="wall-stale" role="status">

@@ -1,5 +1,5 @@
 import type { CompiledSpec } from './cel';
-import type { Facts } from './derive';
+import { rowsByIndex, sortColumn, type Facts } from './derive';
 import { naturalCompare } from './natural';
 import type { Item, TagAxis } from './schema';
 
@@ -25,42 +25,86 @@ export function byAxis(axes: readonly TagAxis[], picked: readonly string[]): str
   return out;
 }
 
-/** The rows of `facts.items` on the wall, in view order. */
+const none = (v: unknown) => v === null || v === undefined;
+
+/** Every row in a sort's order, worked out once per sort and kept.
+ *
+ *  No answer sorts last whichever way the sort runs, strings compare
+ *  naturally, and a tie keeps index order. */
+export function sortOrder<T extends Item>(facts: Facts<T>, key: string): Uint32Array {
+  const def = facts.compiled.spec.sorts.find((s) => s.key === key);
+  if (!def) throw new Error(`no sort named ${key}`);
+  let order = facts.cache.orders.get(key);
+  if (order) return order;
+
+  const { codes, values } = sortColumn(facts, key);
+  const dir = def.desc ? -1 : 1;
+  const byValue = Array.from(values.keys()).sort((a, b) => {
+    const ka = values[a];
+    const kb = values[b];
+    if (none(ka)) return none(kb) ? 0 : 1;
+    if (none(kb)) return -1;
+    if (ka === kb) return 0;
+    if (typeof ka === 'string' && typeof kb === 'string') return naturalCompare(ka, kb) * dir;
+    return ((ka as number) < (kb as number) ? -1 : 1) * dir;
+  });
+  const rank = new Int32Array(values.length);
+  let ranks = 0;
+  byValue.forEach((code, i) => {
+    const prev = byValue[i - 1];
+    const same = prev !== undefined && (values[prev] === values[code]
+      || (none(values[prev]) && none(values[code])));
+    if (i > 0 && !same) ranks++;
+    rank[code] = ranks;
+  });
+
+  const n = facts.store.length;
+  const starts = new Uint32Array(ranks + 2);
+  for (let row = 0; row < n; row++) starts[rank[codes[row]!]! + 1]!++;
+  for (let r = 1; r < starts.length; r++) starts[r]! += starts[r - 1]!;
+  order = new Uint32Array(n);
+  const byIndex = rowsByIndex(facts);
+  for (let i = 0; i < n; i++) {
+    const row = byIndex[i]!;
+    order[starts[rank[codes[row]!]!]!++] = row;
+  }
+  facts.cache.orders.set(key, order);
+  return order;
+}
+
+/** The rows on the wall, in view order. */
 export function applySelection<T extends Item>(c: CompiledSpec<T>, facts: Facts<T>,
-                                               selection: Selection): number[] {
+                                               selection: Selection): Uint32Array {
   const keep = facts.filters[selection.filter];
   if (!keep) throw new Error(`no filter named ${selection.filter}`);
-  const sort = c.spec.sorts.find((s) => s.key === selection.sort);
-  if (!sort) throw new Error(`no sort named ${selection.sort}`);
+  const order = sortOrder(facts, selection.sort);
 
   const hidden = c.spec.classes
     .filter((cls) => !(selection.shown[cls.key] ?? cls.shown))
     .map((cls) => facts.classes[cls.key]!);
-  const excluded = Object.entries(selection.exclude ?? {})
-    .filter(([, values]) => values.length > 0)
-    .map(([key, values]) => [facts.facets[key] ?? [], new Set(values)] as const);
   const axes = byAxis(c.spec.tagAxes ?? [], selection.tags ?? []);
+  const tagOk = axes.length === 0 ? null : Uint8Array.from(
+    facts.tags.values as string[][],
+    (tags) => (axes.every((group) => group.some((t) => tags.includes(t))) ? 1 : 0));
+  const excluded = Object.entries(selection.exclude ?? {})
+    .filter(([key, values]) => values.length > 0 && facts.facets[key])
+    .map(([key, values]) => {
+      const column = facts.facets[key]!;
+      const off = new Set(values);
+      return [column.codes, Uint8Array.from(column.values,
+                                            (v) => (off.has((v as string | null) ?? '') ? 1 : 0))] as const;
+    });
 
-  const rows: number[] = [];
-  for (let row = 0; row < facts.items.length; row++) {
+  const tagCodes = facts.tags.codes;
+  const out = new Uint32Array(order.length);
+  let count = 0;
+  outer: for (let i = 0; i < order.length; i++) {
+    const row = order[i]!;
     if (!keep[row]) continue;
-    if (hidden.some((member) => member[row])) continue;
-    const tags = facts.tags[row]!;
-    if (!axes.every((group) => group.some((t) => tags.includes(t)))) continue;
-    if (excluded.some(([values, off]) => off.has(values[row] ?? ''))) continue;
-    rows.push(row);
+    for (const member of hidden) if (member[row]) continue outer;
+    if (tagOk && !tagOk[tagCodes[row]!]) continue;
+    for (const [codes, off] of excluded) if (off[codes[row]!]) continue outer;
+    out[count++] = row;
   }
-
-  const values = facts.sorts[selection.sort]!;
-  const dir = sort.desc ? -1 : 1;
-  return rows.sort((a, b) => {
-    const ka = values[a];
-    const kb = values[b];
-    // No answer sorts last whichever way the sort runs.
-    if (ka === null || ka === undefined) return kb === null ? 0 : 1;
-    if (kb === null || kb === undefined) return -1;
-    if (ka === kb) return naturalCompare(facts.items[a]!.id, facts.items[b]!.id);
-    if (typeof ka === 'string' && typeof kb === 'string') return naturalCompare(ka, kb) * dir;
-    return ((ka as number) < (kb as number) ? -1 : 1) * dir;
-  });
+  return out.slice(0, count);
 }

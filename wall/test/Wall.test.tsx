@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { compile } from '../src/cel';
 import { derive } from '../src/derive';
 import { cornerBadgeAt } from '../src/draw2d';
-import { gridLayout } from '../src/layout';
+import { gridLayout, rectAt } from '../src/layout';
 import { paintCommands, type PaintCommand } from '../src/paint';
 import { defaultPalette } from '../src/palette';
 import { Wall, type WallProps } from '../src/Wall';
@@ -13,8 +13,8 @@ const compiled = compile(SPEC);
 const items = Array.from({ length: 6 }, (_, i) =>
   thing(`t${i}`, i, i === 2 ? { labels: ['star'] } : {}));
 const facts = derive(compiled, items);
-const order = [2, 0, 1, 3, 4, 5];
-const rects = gridLayout(order, { cell: 120, gap: 4, cols: 3 }).rects;
+const order = Uint32Array.from([2, 0, 1, 3, 4, 5]);
+const laid = gridLayout({ rows: order }, { cell: 120, gap: 4, cols: 3 });
 const cam = { x: 0, y: 0, scale: { x: 1, y: 1 } };
 
 beforeEach(() => {
@@ -27,7 +27,7 @@ beforeEach(() => {
 
 function mount(overrides: Partial<WallProps<Thing>> = {}) {
   const props: WallProps<Thing> = {
-    compiled, facts, order, rects, cam, sheet: null, manifest: null,
+    compiled, facts, laid, cam, sheet: null, manifest: null,
     loose: new Map(), vector: new Map(), width: 400, height: 300,
     highlight: null, highlightTag: null, explicitCaret: null,
     onExplicitCaretChange: vi.fn(), onPan: vi.fn(), onPick: vi.fn(), onOpen: vi.fn(),
@@ -68,13 +68,13 @@ it('follows a linked badge to its target instead of picking', () => {
   const linkTarget = vi.fn(() => 5);
   const w = mount({ linkedBadges: ['star'], linkTarget });
   const [first] = paintCommands({
-    compiled, facts, order, rects, visible: [0], cam, manifest: null,
+    compiled, facts, order, rect: (p) => rectAt(laid, p), visible: [0], cam, manifest: null,
     palette: defaultPalette(compiled.states),
   }) as (PaintCommand & { kind: 'fill' })[];
   const { cx, cy } = cornerBadgeAt(first!.badges![0]!, first!);
   fireEvent.click(w.canvas, { clientX: cx, clientY: cy });
   expect(linkTarget).toHaveBeenCalledWith(2, 'star');
-  expect(w.onExplicitCaretChange).toHaveBeenCalledWith(order.indexOf(5));
+  expect(w.onExplicitCaretChange).toHaveBeenCalledWith(Array.from(order).indexOf(5));
   expect(w.onPan).toHaveBeenCalled();
   expect(w.onPick).not.toHaveBeenCalled();
 });

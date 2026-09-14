@@ -2,7 +2,7 @@ import { useMemo, type CSSProperties } from 'react';
 import { FloatingPanel } from '@weasel-js/labkit';
 import { BadgeSwatch } from './BadgeSwatch';
 import type { CompiledSpec } from './cel';
-import type { Facts } from './derive';
+import { stateKey, tagsOf, type Facts } from './derive';
 import type { Badge, Item } from './schema';
 import { conditionKeys, cssVarTable, familyTable } from './states';
 import { TintScale } from './TintScale';
@@ -13,10 +13,10 @@ export interface LegendProps<T extends Item = Item> {
   compiled: CompiledSpec<T>;
   facts: Facts<T>;
   /** The wall in view order: what the state rows count. */
-  rows: readonly number[];
+  rows: ArrayLike<number> & Iterable<number>;
   /** What the tag rows count: the wall narrowed by everything but the tag
    *  picks, so picking one tag does not read every other as 0. */
-  tagRows?: readonly number[];
+  tagRows?: ArrayLike<number> & Iterable<number>;
   highlight: string | null;
   onHighlight: (state: string | null) => void;
   /** Picked tags: alternatives within an axis, narrowing across axes. An
@@ -56,7 +56,7 @@ export function Legend<T extends Item>({
     const family = familyTable(states);
     const out: Record<string, number> = Object.fromEntries(keys.map((k) => [k, 0]));
     for (const row of rows) {
-      const f = family[facts.state[row]!];
+      const f = family[stateKey(facts, row)];
       if (f !== undefined) out[f] = (out[f] ?? 0) + 1;
     }
     return out;
@@ -67,7 +67,7 @@ export function Legend<T extends Item>({
     const out: Record<string, number> = {};
     for (const axis of spec.tagAxes ?? []) for (const tag of axis.tags) out[tag] = 0;
     for (const row of forTags) {
-      for (const tag of facts.tags[row] ?? []) {
+      for (const tag of tagsOf(facts, row)) {
         if (tag in out) out[tag] = out[tag]! + 1;
       }
     }

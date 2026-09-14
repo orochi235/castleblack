@@ -11,7 +11,7 @@ afterEach(cleanup);
 const SCORE = SPEC.tints![0]!;
 // Log over 1..1000, so the midpoint tick is 32 rather than 500.
 const SPAN: TintDef<Thing> = {
-  key: 'span', label: 'span', scaleLabel: 'time taken', log: true,
+  key: 'span', label: 'span', scaleLabel: 'time taken', log: true, reads: [],
   t: () => null, raw: () => null,
   at: (t) => 10 ** (t * 3),
   format: (v) => (v < 10 ? `${v.toFixed(1)}s` : `${Math.round(v)}s`),

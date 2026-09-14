@@ -1,59 +1,14 @@
 import { createElement } from 'react';
 import { expect, it, vi } from 'vitest';
 import { act, render, renderHook } from '@testing-library/react';
-import { mergeItems, POLL_MS, useItems } from '../src/useItems';
-import type { ItemsState } from '../src/useItems';
+import { tableFromArrays } from 'apache-arrow';
+import { POLL_MS, useItems } from '../src/useItems';
+import type { ItemsBody, ItemsState } from '../src/useItems';
 import type { Item } from '../src/schema';
 
 const item = (id: string, index: number, sha: string | null = null): Item => ({ id, index, sha });
 
-type Body = { items: Item[]; version: string };
-
-it('replaces an item the delta names', () => {
-  const { items } = mergeItems([item('a', 0), item('b', 1)], [item('b', 1, 'sha-b')]);
-  expect(items[1]!.sha).toBe('sha-b');
-});
-
-it('leaves untouched items alone, by identity', () => {
-  const a = item('a', 0);
-  const { items } = mergeItems([a, item('b', 1)], [item('b', 1, 'sha-b')]);
-  expect(items[0]).toBe(a);
-});
-
-it('keeps the array in index order', () => {
-  const { items } = mergeItems([item('a', 0), item('b', 1), item('c', 2)],
-                               [item('c', 2, 'sha-c'), item('a', 0, 'sha-a')]);
-  expect(items.map((c) => c.id)).toEqual(['a', 'b', 'c']);
-});
-
-it('ignores a delta item that is not on the wall', () => {
-  const { items, changed } = mergeItems([item('a', 0)], [item('zz', 99)]);
-  expect(items.map((c) => c.id)).toEqual(['a']);
-  expect(changed).toEqual([]);
-});
-
-it('returns the same array when the delta is empty', () => {
-  const current = [item('a', 0)];
-  expect(mergeItems(current, [])).toEqual({ items: current, changed: [] });
-  expect(mergeItems(current, []).items).toBe(current);
-});
-
-it('names the rows the delta replaced, in row order', () => {
-  const { changed } = mergeItems([item('a', 0), item('b', 1), item('c', 2)],
-                                 [item('c', 2, 'sha-c'), item('a', 0, 'sha-a')]);
-  expect(changed).toEqual([0, 2]);
-});
-
-it('returns the same array when no delta item is on the wall', () => {
-  const current = [item('a', 0)];
-  expect(mergeItems(current, [item('zz', 99)]).items).toBe(current);
-});
-
-it('keeps the fields a host added to its items', () => {
-  const current = [{ ...item('a', 0), title: 'A' }];
-  const { items } = mergeItems(current, [{ ...item('a', 0, 's'), title: 'B' }]);
-  expect(items[0]!.title).toBe('B');
-});
+type Body = ItemsBody<Item>;
 
 /** A stub fetch scripted per slot by call count. */
 function fakeFetch(bodies: Record<string, Body[]>) {
@@ -75,7 +30,10 @@ async function flush() {
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
 }
 
-it('fetches the full list on mount, then polls the delta and merges it', async () => {
+const ids = (state: ItemsState<Item>) =>
+  Array.from({ length: state.store!.length }, (_, row) => state.store!.id(row));
+
+it('fetches the full list on mount, then polls the delta and patches it in', async () => {
   vi.useFakeTimers();
   try {
     const full: Body = { items: [item('a', 0), item('b', 1)], version: 'v1' };
@@ -85,23 +43,63 @@ it('fetches the full list on mount, then polls the delta and merges it', async (
     const { result, unmount } = renderHook(() => useItems(fetchItems, 'naive'));
 
     await flush();
-    expect(result.current.items!.map((c) => c.id)).toEqual(['a', 'b']);
+    expect(ids(result.current)).toEqual(['a', 'b']);
     expect(result.current.changed).toBeNull();
     expect(calls[0]).toEqual({ slot: 'naive', since: undefined });
 
-    const untouched = result.current.items![0];
+    const untouched = result.current.store!.get(0);
 
     await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS); });
 
     expect(calls[1]).toEqual({ slot: 'naive', since: 'v1' });
-    expect(result.current.items!.find((c) => c.id === 'b')!.sha).toBe('sha-b');
-    expect(result.current.items![0]).toBe(untouched);
+    expect(result.current.store!.sha(1)).toBe('sha-b');
+    expect(result.current.store!.get(0)).toBe(untouched);
     expect(result.current.changed).toEqual([1]);
 
     unmount();
     const callsBeforeUnmount = calls.length;
     await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS * 3); });
     expect(calls.length).toBe(callsBeforeUnmount);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('takes the corpus and its deltas as Arrow tables', async () => {
+  vi.useFakeTimers();
+  try {
+    const full: Body = {
+      table: tableFromArrays({ id: ['a', 'b', 'c'], index: Int32Array.from([0, 1, 2]),
+                               sha: ['x', 'y', 'z'] }) as never,
+      version: 'v1',
+    };
+    const delta: Body = {
+      table: tableFromArrays({ id: ['c'], index: Int32Array.from([2]), sha: ['z2'] }) as never,
+      version: 'v2',
+    };
+    const { fetchItems } = fakeFetch({ arrow: [full, delta] });
+    const { result } = renderHook(() => useItems(fetchItems, 'arrow'));
+    await flush();
+    expect(ids(result.current)).toEqual(['a', 'b', 'c']);
+    await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS); });
+    expect(result.current.store!.sha(2)).toBe('z2');
+    expect(result.current.changed).toEqual([2]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('keeps the same store when a delta names nothing on the wall', async () => {
+  vi.useFakeTimers();
+  try {
+    const { fetchItems } = fakeFetch({
+      s: [{ items: [item('a', 0)], version: 'v1' }, { items: [item('zz', 99)], version: 'v2' }],
+    });
+    const { result } = renderHook(() => useItems(fetchItems, 's'));
+    await flush();
+    const before = result.current.store;
+    await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS); });
+    expect(result.current.store).toBe(before);
   } finally {
     vi.useRealTimers();
   }
@@ -125,7 +123,7 @@ it('refetches from scratch, with no since, when the slot changes', async () => {
     await flush();
 
     expect(calls.find((c) => c.slot === 'second')).toEqual({ slot: 'second', since: undefined });
-    expect(result.current.items!.find((c) => c.id === 'a')!.sha).toBe('sha-second');
+    expect(result.current.store!.sha(0)).toBe('sha-second');
     expect(result.current.changed).toBeNull();
   } finally {
     vi.useRealTimers();
@@ -149,13 +147,13 @@ it('keeps the old slot drawn until the new one lands, and never pairs items with
 
   const { rerender } = render(createElement(Parent, { slot: 'first' }));
   await act(async () => { resolveFirst({ items: [item('a', 0, 'sha-a')], version: 'v1' }); });
-  expect(seen.at(-1)!.state.items).not.toBeNull();
+  expect(seen.at(-1)!.state.store).not.toBeNull();
 
   seen.length = 0;
   rerender(createElement(Parent, { slot: 'second' }));
 
   // The second fetch never resolves, so this is the whole switching window.
   expect(seen.at(-1)!.state).toMatchObject({ slot: 'first' });
-  expect(seen.at(-1)!.state.items).not.toBeNull();
-  expect(seen.every((s) => s.state.items === null || s.state.slot === 'first')).toBe(true);
+  expect(seen.at(-1)!.state.store).not.toBeNull();
+  expect(seen.every((s) => s.state.store === null || s.state.slot === 'first')).toBe(true);
 });
