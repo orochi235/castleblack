@@ -9,7 +9,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
-    "types": [],
+    "types": ["vite/client"],
     "paths": { "@pezlie/wall/*": ["../../wall/*"] }
   },
   "include": ["src", "test"]

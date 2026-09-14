@@ -26,11 +26,12 @@ def _narrow(arr: pa.DictionaryArray) -> pa.DictionaryArray:
 
 
 def table(columns: Mapping[str, Sequence], dictionary: Iterable[str] = (),
-          types: Mapping[str, pa.DataType] | None = None) -> pa.Table:
+          types: Mapping[str, pa.DataType] | None = None, first: int = 0) -> pa.Table:
     """The columns as a table, `dictionary` columns dictionary-encoded and
     `types` naming any column's Arrow type.
 
-    `id`, `index` and `sha` are required; `index` must be exactly 0..n-1.
+    `id`, `index` and `sha` are required; `index` must be exactly
+    first..first+n-1, which is 0..n-1 for a whole feed.
     """
     types = dict(types or {})
     for name in ("id", "index", "sha"):
@@ -41,8 +42,8 @@ def table(columns: Mapping[str, Sequence], dictionary: Iterable[str] = (),
         if len(values) != n:
             raise ValueError(f"column {name!r} has {len(values)} rows, id has {n}")
     order = sorted(range(n), key=columns["index"].__getitem__)
-    if [columns["index"][i] for i in order] != list(range(n)):
-        raise ValueError("indices must be exactly 0..n-1, each once")
+    if [columns["index"][i] for i in order] != list(range(first, first + n)):
+        raise ValueError(f"indices must be exactly {first}..{first + n - 1}, each once")
     encoded = set(dictionary)
     arrays = {}
     for name, values in columns.items():
@@ -55,6 +56,31 @@ def table(columns: Mapping[str, Sequence], dictionary: Iterable[str] = (),
             arr = pa.array(ordered, types.get(name))
         arrays[name] = _narrow(arr.dictionary_encode()) if name in encoded else arr
     return pa.table(arrays)
+
+
+def write_parts(directory: Path | str, columns: Mapping[str, Sequence],
+                dictionary: Iterable[str] = (), types: Mapping[str, pa.DataType] | None = None,
+                rows: int = 131_072, version: str = "") -> dict:
+    """The feed as gzipped Arrow parts of `rows` rows each, and a
+    `manifest.json` naming them, for a static host to serve and a page to fetch
+    in parallel. Each part carries its own dictionaries, so a column with many
+    distinct strings is not repeated whole in every part. Rows must already be
+    in index order."""
+    import gzip
+    import json
+
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    n = len(columns["id"])
+    parts = []
+    for i, start in enumerate(range(0, n, rows)):
+        piece = {name: values[start:start + rows] for name, values in columns.items()}
+        name = f"part-{i:03d}.arrow.gz"
+        (directory / name).write_bytes(gzip.compress(to_bytes(table(piece, dictionary, types, start)), 6))
+        parts.append(name)
+    manifest = {"version": version, "rows": n, "parts": parts}
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    return manifest
 
 
 def to_bytes(t: pa.Table) -> bytes:

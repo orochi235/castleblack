@@ -2,7 +2,7 @@ import pyarrow as pa
 import pyarrow.ipc as ipc
 import pytest
 
-from pezlie.feed import table, to_bytes, write_table
+from pezlie.feed import table, to_bytes, write_parts, write_table
 
 
 def cols(**extra):
@@ -29,9 +29,9 @@ def test_types_name_a_column_type():
 
 
 def test_indices_must_cover_every_row_once():
-    with pytest.raises(ValueError, match="0..n-1"):
+    with pytest.raises(ValueError, match="exactly 0\.\."):
         table({"id": ["a", "b"], "index": [0, 0], "sha": [None, None]})
-    with pytest.raises(ValueError, match="0..n-1"):
+    with pytest.raises(ValueError, match="exactly 0\.\."):
         table({"id": ["a", "b"], "index": [0, 2], "sha": [None, None]})
 
 
@@ -40,6 +40,22 @@ def test_required_and_ragged_columns_are_refused():
         table({"id": ["a"], "index": [0]})
     with pytest.raises(ValueError, match="has 1 rows"):
         table(cols(kind=["x"]))
+
+
+def test_parts_split_the_feed_with_their_own_dictionaries(tmp_path):
+    import gzip
+    import json
+    ids = [f"i{n}" for n in range(5)]
+    manifest = write_parts(tmp_path, {"id": ids, "index": list(range(5)), "sha": [None] * 5,
+                                      "kind": ["a", "a", "b", "c", "c"]},
+                           dictionary=["kind"], rows=2, version="v1")
+    assert manifest == {"version": "v1", "rows": 5,
+                        "parts": ["part-000.arrow.gz", "part-001.arrow.gz", "part-002.arrow.gz"]}
+    assert json.loads((tmp_path / "manifest.json").read_text()) == manifest
+    tables = [ipc.open_stream(gzip.decompress((tmp_path / p).read_bytes())).read_all()
+              for p in manifest["parts"]]
+    assert [t.column("index").to_pylist() for t in tables] == [[0, 1], [2, 3], [4]]
+    assert [len(t.column("kind").chunk(0).dictionary) for t in tables] == [1, 2, 1]
 
 
 def test_bytes_round_trip(tmp_path):

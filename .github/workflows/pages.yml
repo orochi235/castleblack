@@ -1,14 +1,17 @@
-name: Deploy the emoji wall to GitHub Pages
+name: Deploy the demos to GitHub Pages
 
-# Builds hosts/emoji, the compact wall the portfolio embeds, on every push to
-# main that could change it; also runnable by hand from the Actions tab.
+# Builds the compact emoji wall at the site root and the Unicode wall under
+# unicode/, on every push to main that could change either; also runnable by
+# hand from the Actions tab.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - hosts/emoji/**
+      - hosts/unicode/**
       - wall/src/**
+      - bakery/src/**
       - package-lock.json
       - .github/workflows/pages.yml
 
@@ -31,11 +34,25 @@ jobs:
         with:
           node-version: 22
 
+      - uses: astral-sh/setup-uv@v7
+
       - name: Install deps
         run: npm ci
 
-      - name: Build
+      - name: Build the emoji wall
         run: npm run build -w hosts/emoji
+
+      - name: Write the Unicode feeds as parts
+        run: >
+          uv run --python 3.12 --with pyarrow --with ./bakery
+          python hosts/unicode/make.py --out hosts/unicode/out --parts hosts/emoji/dist/unicode/data
+
+      - name: Build the Unicode wall
+        working-directory: hosts/unicode
+        env:
+          VITE_STATIC: '1'
+          UNICODE_BASE: /pezlie/unicode/
+        run: npx vite build --outDir ../emoji/dist/unicode --emptyOutDir false
 
       - uses: actions/configure-pages@v6
 

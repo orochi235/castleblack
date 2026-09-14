@@ -15,7 +15,13 @@ hosts/unicode/.venv/bin/python -m uvicorn --factory 'server:app_from_env' --app-
 npm run dev -w hosts/unicode     # http://localhost:5196, /api proxied to 8796
 ```
 
-`#codepoints` and `#assigned` pick the collection. `make.py` checks the UCD files
+`#codepoints` and `#assigned` pick the collection.
+
+**Static build.** `make.py --parts <dir>` also writes each collection as gzipped
+Arrow parts of 131,072 rows with a `manifest.json`; a build with
+`VITE_STATIC=1` fetches those from `data/<collection>/` beside the page, in
+parallel, with no server. `.github/workflows/pages.yml` publishes one at
+`https://michaelbaker.tech/pezlie/unicode/`. `make.py` checks the UCD files
 against pinned sha256 sums in `ucd.py`; the server reads `UNICODE_OUT` (default
 `hosts/unicode/out`).
 

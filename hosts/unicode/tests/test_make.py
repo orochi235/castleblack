@@ -75,6 +75,21 @@ def test_assigned_is_the_assigned_code_points_renumbered(out, db):
     assert set(t.column("kind").to_pylist()) == {"assigned"}
 
 
+def test_parts_reassemble_into_the_whole_feed(tmp_path):
+    import gzip
+    import json
+    import pyarrow as pa
+    make.make(tmp_path / "out", CACHE, parts=tmp_path / "parts")
+    manifest = json.loads((tmp_path / "parts" / "assigned" / "manifest.json").read_text())
+    tables = [ipc.open_stream(gzip.decompress((tmp_path / "parts" / "assigned" / p).read_bytes())).read_all()
+              for p in manifest["parts"]]
+    whole = read(tmp_path / "out", "assigned")
+    assert manifest["rows"] == whole.num_rows == sum(t.num_rows for t in tables)
+    joined = pa.concat_tables([t.cast(whole.schema) if False else t for t in tables], promote_options="permissive")
+    assert joined.column("cp").to_pylist() == whole.column("cp").to_pylist()
+    assert joined.column("name").to_pylist() == whole.column("name").to_pylist()
+
+
 def test_a_changed_file_is_refused(tmp_path):
     for name in ucd.SHA256:
         (tmp_path / name).write_bytes((CACHE / name).read_bytes())

@@ -10,7 +10,7 @@ export const POLL_MS = 10_000;
  *  index order. */
 export type ItemsBody<T extends Item> =
   | { items: readonly T[]; version: string }
-  | { table: Table; version: string };
+  | { table: Table | readonly Table[]; version: string };
 
 /** A host's item feed: the full list, or with `since` only what changed. */
 export type FetchItems<T extends Item> = (slot: string, since?: string) => Promise<ItemsBody<T>>;
@@ -20,7 +20,9 @@ export function storeOf<T extends Item>(body: ItemsBody<T>): ItemStore<T> {
 }
 
 const deltaOf = <T extends Item>(body: ItemsBody<T>): readonly T[] =>
-  ('table' in body ? itemsFromArrow<T>(body.table) : body.items);
+  ('table' in body
+    ? (Array.isArray(body.table) ? body.table : [body.table as Table]).flatMap((t) => itemsFromArrow<T>(t))
+    : body.items);
 
 /** The wall's items, the slot they are for, and the rows the last poll replaced.
  *

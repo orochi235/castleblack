@@ -4,6 +4,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  // A static build under GitHub Pages sits below the emoji wall.
+  base: process.env.UNICODE_BASE ?? '/',
   resolve: { alias: { '@pezlie/wall': resolve(import.meta.dirname, '../../wall') } },
   server: {
     host: '::',

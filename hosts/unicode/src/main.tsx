@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { tableFromIPC } from 'apache-arrow';
+import { tableFromIPC, type Table } from 'apache-arrow';
 import { Persistence } from '@weasel-js/labkit';
 import '@weasel-js/labkit/styles.css';
 import { bandedLayout, blockLayout, type GroupKey } from '@pezlie/wall/src/grouped';
@@ -12,7 +12,35 @@ import {
 } from './spec';
 import './unicode.css';
 
+/** Built for a static host: the feed is gzipped parts beside the page, fetched
+ *  in parallel and joined, and there is no server to ask for a delta. */
+const STATIC = import.meta.env.VITE_STATIC === '1';
+
+async function staticTable(collection: Collection): Promise<{ table: Table[]; version: string }> {
+  const base = `${import.meta.env.BASE_URL}data/${collection}/`;
+  const manifest = await (await fetch(`${base}manifest.json`)).json() as
+    { version: string; parts: string[] };
+  const tables = await Promise.all(manifest.parts.map(async (part) => {
+    const response = await fetch(`${base}${part}`);
+    if (!response.ok || !response.body) throw new Error(`${part}: ${response.status}`);
+    const bytes = await new Response(response.body.pipeThrough(new DecompressionStream('gzip')))
+      .arrayBuffer();
+    return tableFromIPC(new Uint8Array(bytes));
+  }));
+  return { table: tables, version: manifest.version };
+}
+
+function staticFeed(collection: Collection) {
+  return {
+    urls: defaultUrls(`${import.meta.env.BASE_URL}api/${collection}`),
+    fetchItems: async (_slot: string, since?: string) => (since
+      ? { items: [] as CodePoint[], version: since } : staticTable(collection)),
+    fetchSlots: async () => [{ slot: 'ucd', n: 0 }],
+  };
+}
+
 function feed(collection: Collection) {
+  if (STATIC) return staticFeed(collection);
   return {
     urls: defaultUrls(`/api/${collection}`),
     fetchItems: async (slot: string, since?: string) => {

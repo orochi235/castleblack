@@ -94,3 +94,20 @@ describe('storeFromArrow', () => {
     expect(() => storeFromArrow(t as never)).toThrow(/index order/);
   });
 });
+
+describe('storeFromArrow over several batches', () => {
+  it('reads dictionary columns whose batches carry different dictionaries', async () => {
+    const part = (ids: string[], first: number, kinds: string[]) => tableFromIPC(tableToIPC(makeTable({
+      id: vectorFromArray(ids, new Utf8()).data[0]!,
+      index: vectorFromArray(ids.map((_, i) => first + i), new Int32()).data[0]!,
+      sha: vectorFromArray(ids.map(() => null), new Utf8()).data[0]!,
+      kind: vectorFromArray(kinds, new Dictionary(new Utf8(), new Int32())).data[0]!,
+    } as never) as never));
+    const store = storeFromArrow([part(['a', 'b'], 0, ['p', 'q']), part(['c'], 2, ['r'])] as never);
+    expect(store.length).toBe(3);
+    expect(valuesOf(store, 'kind')).toEqual(['p', 'q', 'r']);
+    expect([store.id(2), store.index(2), store.id(1)]).toEqual(['c', 2, 'b']);
+    expect(store.get(2)).toEqual({ id: 'c', index: 2, sha: null, kind: 'r' });
+    expect(store.column('index')).toEqual({ codes: new Int32Array([0, 1, 2]), values: [0, 1, 2] });
+  });
+});

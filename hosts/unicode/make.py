@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 import pyarrow as pa
-from pezlie.feed import write_table
+from pezlie.feed import write_parts, write_table
 
 import ucd
 
@@ -41,7 +41,9 @@ def columns(db: ucd.Database, keep=None) -> dict[str, list]:
     }
 
 
-def make(out: Path, cache: Path = HERE / ".ucd") -> dict[str, int]:
+def make(out: Path, cache: Path = HERE / ".ucd", parts: Path | None = None) -> dict[str, int]:
+    """Both collections as Arrow feeds in `out`; with `parts`, also as the
+    gzipped parts a static page fetches, one directory per collection."""
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
     db = ucd.parse(ucd.fetch(cache))
@@ -52,6 +54,8 @@ def make(out: Path, cache: Path = HERE / ".ucd") -> dict[str, int]:
         t0 = time.perf_counter()
         cols = columns(db, keep)
         write_table(out / f"{collection}.arrow", cols, dictionary=DICTIONARY, types=TYPES)
+        if parts is not None:
+            write_parts(parts / collection, cols, DICTIONARY, TYPES, version=f"ucd-{ucd.VERSION}")
         counts[collection] = len(cols["id"])
         print(f"  {i}/3 wrote {collection}.arrow, {counts[collection]:>9,} rows "
               f"in {time.perf_counter() - t0:5.1f} s")
@@ -62,4 +66,6 @@ def make(out: Path, cache: Path = HERE / ".ucd") -> dict[str, int]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=HERE / "out")
-    make(parser.parse_args().out)
+    parser.add_argument("--parts", type=Path, help="also write gzipped parts for a static page here")
+    args = parser.parse_args()
+    make(args.out, parts=args.parts)
