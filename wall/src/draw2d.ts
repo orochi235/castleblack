@@ -109,13 +109,20 @@ export function drawCellMark(ctx: CanvasRenderingContext2D, name: string,
   ctx.restore();
 }
 
-/** A quiet cell's glyph, in the current `fillStyle`, sized to the cell. */
+/** A quiet cell's glyph, in the current `fillStyle`, sized to the cell and
+ *  centered on its ink. */
 export function drawGlyph(ctx: CanvasRenderingContext2D, glyph: string, box: Box) {
   ctx.save();
   ctx.font = `${WEIGHT_ID} ${box.dh * GLYPH_SCALE}px ${THUMB_FACE}`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(glyph, box.dx + box.dw / 2, box.dy + box.dh / 2 + box.dh * 0.03);
+  // Not `middle`: WebKit and Blink place it differently, and an emoji from a
+  // fallback font landed a tenth of the cell low on a phone.
+  ctx.textBaseline = 'alphabetic';
+  const m = ctx.measureText(glyph);
+  const half = (a: number, b: number) => (Number.isFinite(a - b) ? (a - b) / 2 : 0);
+  ctx.fillText(glyph,
+               box.dx + box.dw / 2 + half(m.actualBoundingBoxLeft, m.actualBoundingBoxRight),
+               box.dy + box.dh / 2 + half(m.actualBoundingBoxAscent, m.actualBoundingBoxDescent));
   ctx.restore();
 }
 

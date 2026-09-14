@@ -160,3 +160,10 @@ it('sets an outer band label in label ink and an inner one in sublabel ink', () 
     { args: ['south', 0, 10], fillStyle: '#777777' },
   ]);
 });
+
+it('centers a glyph on its measured ink, not on a baseline', () => {
+  const { ctx, named } = recorder();
+  drawPaintCommand(ctx, fill({ glyph: 'G' }), null, PALETTE, OPTIONS);
+  // The recorder's ink rises 6 above the baseline and falls 2 below it.
+  expect(named('fillText')).toMatchObject([{ args: ['G', 20, 22] }]);
+});
