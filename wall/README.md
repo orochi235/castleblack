@@ -1,9 +1,9 @@
 # pezlie
 
-A pan/zoom wall over tens of thousands of items: which state each item is in,
-which items are on the wall and in what order, what color each cell is, how a
-frame is drawn, where the pictures come from, and the React page around it all.
-It knows nothing about what the items are.
+A pan/zoom wall over a million items: which state each item is in, which items
+are on the wall and in what order, what color each cell is, how a frame is
+drawn, where the pictures come from, and the React page around it all. It knows
+nothing about what the items are.
 
 ```bash
 npm install pezlie
@@ -21,24 +21,35 @@ A `CorpusSpec` (`src/schema.ts`):
   the catch-all, and a dimmed cell wears it. A state can name **variants** —
   the same condition holding somewhere else — which the wall generates.
 - **Filters, classes and sorts**, as CEL. A sort value of `null` sorts last in
-  both directions.
+  both directions, and a tie keeps index order.
 - **Tags** (a CEL list) and the **axes** they are picked along: alternatives
   within an axis, narrowing across axes.
 - **Facets, captions, glyph and mark** — display projections, as CEL or as a
-  named TypeScript hook.
+  named TypeScript hook. A facet hook names the fields it `reads`.
 - **Badges**: art per tag, in a corner or the strip, with the mark art in
   `marks`. A badge can yield to a caption, and drops wherever that caption is
   drawn. Only a top-right caption moves aside for a corner badge.
-- **Tints**: TypeScript functions placing an item on a ramp.
+- **Tints**: TypeScript functions placing an item on a ramp, with the fields
+  they `reads`.
 
 For the page, `WallView` also takes the item and slot fetchers, a `SlotUrls`
 (`defaultUrls('/api')` matches `bakery`'s routes), groupings, a facet for the
 sidebar, and render props for the card and the detail view.
 
+`fetchItems` answers with `{ items, version }` — objects, fine for tens of
+thousands — or `{ table, version }`, an Arrow table in index order, which is
+what a million items needs. `bakery`'s `pezlie.feed` writes one.
+
 ## Rules a spec has to follow
 
 - **Items carry `index`, and the indices are exactly `0..n-1`.** An item's cell
-  on every sheet is its index. `derive` throws on a repeat or a gap.
+  on every sheet is its index. `derive` throws on a repeat or a gap. An Arrow
+  feed puts its rows in index order.
+- **Say what a hook reads.** CEL rules, tints, facet hooks and grouping keys are
+  evaluated once per distinct combination of the fields they read, so a tint or
+  a facet hook without `reads` is a spec error, and a hook that reads a field it
+  did not name sees it missing. Captions, glyph and mark run for visible cells
+  only and get the whole item.
 - **Guard optional fields with `has()`.** Reading a field an item lacks is an
   error in CEL; the wall reads it as `false` or `null` and warns once per
   expression.
@@ -61,16 +72,23 @@ The pieces, for a host that builds its own page:
 
 ```ts
 const compiled = compile(spec);
-const facts = derive(compiled, items);            // once per load; rederive() for a delta
-const order = applySelection(compiled, facts, selection);
-const commands = paintCommands({ compiled, facts, order, rects, visible, cam, manifest,
-                                 palette: defaultPalette(compiled.states) });
+const facts = derive(compiled, storeFromArrow(table));  // or an array of items
+const rows = applySelection(compiled, facts, selection); // a Uint32Array, sorted once per sort
+const laid = gridLayout({ rows, facts }, { cell: 32, gap: 4, cols: 1000 });
+const commands = paintCommands({
+  compiled, facts, order: laid.order, rect: (p) => rectAt(laid, p),
+  visible: visiblePositions(laid, cam, viewport) ?? [], cam, manifest,
+  palette: defaultPalette(compiled.states),
+});
 ```
 
-`Wall` draws those commands on a canvas and handles pan, pinch, keyboard and
-clicks; `useItems`, `useSheets`, `useLooseThumbs` and `useVectorThumbs` load
-what it draws; `Legend`, `Sidebar`, `ItemCard` and `ParamsPanel` are the chrome.
-CSS classes are `wall-*`; colors can be overridden with custom properties under
+A layout returns blocks of cells rather than a rect per item; `blockLayout` and
+`bandedLayout` group by a `GroupKey`, which names the fields it reads. `Wall`
+draws a laid wall on a canvas and handles pan, pinch, keyboard and clicks; below
+badge size it draws from a pyramid of tiles it renders as they come into view.
+`useItems`, `useSheets`, `useLooseThumbs` and `useVectorThumbs` load what it
+draws; `Legend`, `Sidebar`, `ItemCard` and `ParamsPanel` are the chrome. CSS
+classes are `wall-*`; colors can be overridden with custom properties under
 `--wall`.
 
 ## Develop
@@ -83,4 +101,5 @@ npx tsc --noEmit
 
 `test/leak.test.ts` fails if a host's vocabulary appears anywhere in the
 package. `hosts/brick-icons/` proves brick-icons' spec draws what brick-icons
-drew; `hosts/demo/` is a working page.
+drew; `hosts/unicode/` is a working page over every Unicode code point, and its
+`bench/` measures the wall at a million items.

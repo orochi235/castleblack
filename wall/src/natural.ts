@@ -20,9 +20,24 @@ export function chunks(text: string): Chunks {
  *  and the number zero-padded, so one string compare stands in for a run of
  *  chunk compares. Text holding U+0000 is not ordered faithfully. */
 export function naturalKey(text: string): string {
-  return chunks(text).map((c) => (typeof c === 'number' ? `\u0000${String(c).padStart(16, '0')}` : c))
-    .join('');
+  let i = 0;
+  while (i < text.length && !isDigit(text.charCodeAt(i))) i++;
+  if (i === text.length) return text;
+  let out = text.slice(0, i);
+  while (i < text.length) {
+    const start = i;
+    if (isDigit(text.charCodeAt(i))) {
+      while (i < text.length && isDigit(text.charCodeAt(i))) i++;
+      out += `\u0000${String(Number(text.slice(start, i))).padStart(16, '0')}`;
+    } else {
+      while (i < text.length && !isDigit(text.charCodeAt(i))) i++;
+      out += text.slice(start, i);
+    }
+  }
+  return out;
 }
+
+const isDigit = (code: number) => code >= 48 && code <= 57;
 
 /** Compares two ids component-wise. A digit run sorts before a letter run at
  *  the same position, which is what keeps `4100` ahead of `4100b`: the

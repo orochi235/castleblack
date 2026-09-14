@@ -40,7 +40,9 @@ export function sortOrder<T extends Item>(facts: Facts<T>, key: string): Uint32A
   const { codes, values } = sortColumn(facts, key);
   const { rank, ranks } = values.every((v) => none(v) || typeof v === 'number')
     ? rankNumbers(values as (number | null)[], def.desc)
-    : rankValues(values, def.desc);
+    : values.every((v) => none(v) || typeof v === 'string')
+      ? rankStrings(values as (string | null)[], def.desc)
+      : rankValues(values, def.desc);
 
   const n = facts.store.length;
   const starts = new Uint32Array(ranks + 2);
@@ -86,6 +88,31 @@ function rankNumbers(values: readonly (number | null)[], desc: boolean): { rank:
     rank[code] = desc ? distinct - 1 - lo : lo;
   });
   return { rank, ranks: distinct };
+}
+
+/** Strings rank by the engine's own string sort over natural keys, each
+ *  tagged with its code: several times faster than a comparator over a
+ *  hundred thousand names. */
+function rankStrings(values: readonly (string | null)[], desc: boolean): { rank: Int32Array; ranks: number } {
+  // Below every digit, so a tag never reorders two keys that differ.
+  const SEP = '\u0000\u0000';
+  const tagged: string[] = [];
+  values.forEach((v, code) => { if (!none(v)) tagged.push(`${naturalKey(v!)}${SEP}${code}`); });
+  tagged.sort();
+  if (desc) tagged.reverse();
+  const rank = new Int32Array(values.length);
+  let ranks = 0;
+  let previous: string | null = null;
+  for (const entry of tagged) {
+    const cut = entry.lastIndexOf(SEP);
+    const key = entry.slice(0, cut);
+    if (previous !== null && key !== previous) ranks++;
+    previous = key;
+    rank[Number(entry.slice(cut + SEP.length))] = ranks;
+  }
+  const last = tagged.length ? ranks + 1 : 0;
+  values.forEach((v, code) => { if (none(v)) rank[code] = last; });
+  return { rank, ranks: last + 1 };
 }
 
 function rankValues(values: readonly unknown[], desc: boolean): { rank: Int32Array; ranks: number } {
