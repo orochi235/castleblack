@@ -112,3 +112,37 @@ it('draws no slot picker when the host takes it over', async () => {
   await screen.findByText('1 slots');
   expect(document.querySelector('.wall-slot')).toBeNull();
 });
+
+async function mountRevealing(overrides: Partial<Parameters<typeof WallView<Thing>>[0]> = {}) {
+  let wall: WallHeader | undefined;
+  const out = mount({
+    defaultSlot: 'north',
+    renderCard: (item) => <span>card {item.id}</span>,
+    header: (w) => { wall = w; return null; },
+    ...overrides,
+  });
+  await screen.findByText('warning');
+  return { ...out, reveal: (id: string) => { let r = ''; act(() => { r = wall!.reveal(id); }); return r; } };
+}
+
+it('reveals a drawn item and opens its card', async () => {
+  const { reveal } = await mountRevealing();
+  expect(reveal('b')).toBe('shown');
+  expect(await screen.findByText('card b')).toBeTruthy();
+});
+
+it('says an id is absent when the drawn slot has no such item', async () => {
+  const { reveal } = await mountRevealing();
+  expect(reveal('nope')).toBe('absent');
+  expect(screen.queryByText(/^card /)).toBeNull();
+});
+
+it('says an item is filtered when the selection hides it', async () => {
+  const withUndrawn = [...items, thing('d', 3, { sha: null })];
+  const { reveal } = await mountRevealing({
+    fetchItems: vi.fn(() => Promise.resolve({ items: withUndrawn, version: 'v1' })),
+    initial: { selection: { filter: 'drawn' } },
+  });
+  expect(reveal('d')).toBe('filtered');
+  expect(reveal('a')).toBe('shown');
+});

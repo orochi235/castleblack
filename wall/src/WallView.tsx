@@ -13,11 +13,12 @@ import { clampWallView, DEFAULT_BLANK_PX, sameView } from './clamp';
 import { derive, rederive, rowOfId, type Facts } from './derive';
 import type { DrawOptions } from './draw2d';
 import { ItemCard } from './ItemCard';
-import { gridLayout, visibleCount, visiblePositions, type Layout } from './layout';
+import { gridLayout, rectAt, visibleCount, visiblePositions, type Layout } from './layout';
 import { Legend } from './Legend';
 import { levelFor, LOOSE_LEVEL, pickLevel, SHEET_LEVELS } from './levels';
 import { paramSchema, type Params } from './params';
 import { BADGE_MIN_PX, type Appearance } from './paint';
+import { centerReveal } from './reveal';
 import type { CorpusSpec, Item } from './schema';
 import { applySelection } from './select';
 import { staleCountOf } from './sheet';
@@ -44,6 +45,9 @@ const NONE = { key: 'none', label: 'nothing' };
 const NO_ROWS = new Uint32Array(0);
 /** The most cells on screen that the loose and vector rungs will fetch for. */
 const MAX_THUMB_CELLS = 5_000;
+/** How much of the viewport's height a revealed cell fills at least. A search
+ *  hit landing on a 32px cell in a wall of tens of thousands lands nowhere. */
+const REVEAL_MIN_HEIGHT = 0.5;
 /** How far past each edge of the screen, in screens, pictures load ahead. */
 const THUMB_OVERSCAN = 0.5;
 
@@ -230,10 +234,9 @@ function WallViewBody<T extends Item>({
   const fittedGrouping = useRef(selection.grouping);
 
   // Polled: a slot appears when the host indexes it. A later poll never moves
-  // anyone off the slot they are looking at.
+  // anyone off the slot they are looking at — including one picked before the
+  // first poll lands.
   const opens = useRef(!!slot);
-  // A reader who picks a slot before the first poll resolves must not be
-  // moved back off it once that poll lands.
   const chooseSlot = useCallback((s: string) => { opens.current = true; setSlot(s); }, []);
   useEffect(() => {
     let live = true;
@@ -326,7 +329,6 @@ function WallViewBody<T extends Item>({
     setCam((current) => (sameView(current, clamped) ? current : clamped));
   };
   const camAnim = useViewAnimation({ get: () => camRef.current ?? IDENTITY_VIEW, set: updateCam });
-  void camAnim;
 
   // Fit the wall's width and let it run off the bottom, top-left at top-left.
   const fitToWall = useCallback(() => {
@@ -451,7 +453,24 @@ function WallViewBody<T extends Item>({
   const openedItem = opened !== null && openedRow !== null && facts && openedRow < facts.store.length
     && facts.store.id(openedRow) === opened ? facts.store.get(openedRow) : itemAt(opened);
 
-  const reveal = (_id: string): RevealResult => 'absent';
+  // What a host's search calls. The caret and card follow the pointer's own
+  // path; the camera move counts as the reader's, so a regroup keeps it.
+  const reveal = useCallback((id: string): RevealResult => {
+    if (!facts) return 'absent';
+    const row = rowOfId(facts, id);
+    if (row === undefined) return 'absent';
+    const position = laid.order.indexOf(row);
+    if (position < 0) return 'filtered';
+    const rect = rectAt(laid, position);
+    const at = camRef.current;
+    if (rect && at) {
+      touched.current = true;
+      camAnim.animate(centerReveal(rect, at, size, REVEAL_MIN_HEIGHT));
+    }
+    setExplicitCaret(position);
+    setCarded({ id, row, at: { x: size.width / 2, y: size.height / 2 } });
+    return 'shown';
+  }, [facts, laid, size, camAnim]);
 
   return (
     <LabShell title={title} pages={pages} mode={mode}
