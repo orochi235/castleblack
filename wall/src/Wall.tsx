@@ -11,7 +11,7 @@ import { LoupeBubble, resolveLoupe, useLoupe } from '@weasel-js/labkit/loupe';
 import { adjacent, impliedCaret, type Direction } from './caret';
 import type { CompiledSpec } from './cel';
 import type { Facts } from './derive';
-import { cornerBadgeAt, DEFAULT_WASH, drawPaintCommand, type DrawOptions } from './draw2d';
+import { cornerBadgesAt, DEFAULT_WASH, drawPaintCommand, type DrawOptions } from './draw2d';
 import { scenePainter, type SceneWallPainter } from './drawScene';
 import { positionAt, rectAt, visiblePositions, type Laid } from './layout';
 import { DEFAULT_APPEARANCE, DEFAULT_GROUND, paintCommands, type Appearance, type PaintCommand } from './paint';
@@ -332,9 +332,11 @@ export function Wall<T extends Item>({
     const c = commandsFor(cam, true, [position])
       .find((cmd): cmd is Exclude<PaintCommand, { kind: 'label' }> => cmd.kind !== 'label');
     if (!c) return null;
-    const badge = (('badges' in c ? c.badges : undefined) ?? []).find((b) => {
+    const badges = ('badges' in c ? c.badges : undefined) ?? [];
+    const discs = cornerBadgesAt(badges, c);
+    const badge = badges.find((b, i) => {
       if (!linked.has(b.tag)) return false;
-      const { cx, cy, radius } = cornerBadgeAt(b, c);
+      const { cx, cy, radius } = discs[i]!;
       return Math.hypot(sx - cx, sy - cy) <= radius;
     });
     return { position, row: order[position]!, at: { x: sx, y: sy }, badge };

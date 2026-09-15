@@ -1,5 +1,8 @@
 import { expect, it, vi } from 'vitest';
-import { CIRCLE_SCALE, DEFAULT_WASH, drawPaintCommand, type DrawOptions } from '../src/draw2d';
+import {
+  badgeGeometry, CIRCLE_SCALE, cornerBadgesAt, DEFAULT_WASH, drawPaintCommand, type DrawOptions,
+} from '../src/draw2d';
+import type { BadgeArt } from '../src/schema';
 import type { Marks } from '../src/marks';
 import type { PaintCommand } from '../src/paint';
 import type { Palette } from '../src/palette';
@@ -166,4 +169,49 @@ it('centers a glyph on its measured ink, not on a baseline', () => {
   drawPaintCommand(ctx, fill({ glyph: 'G' }), null, PALETTE, OPTIONS);
   // The recorder's ink rises 6 above the baseline and falls 2 below it.
   expect(named('fillText')).toMatchObject([{ args: ['G', 20, 22] }]);
+});
+
+it('sizes and insets a badge in proportion to its cell', () => {
+  const small = badgeGeometry(80);
+  const large = badgeGeometry(400);
+  expect(large.radius / small.radius).toBeCloseTo(5);
+  expect(large.inset / small.inset).toBeCloseTo(5);
+  expect(large.size / small.size).toBeCloseTo(5);
+  // Where the old caption-derived geometry was unclamped, nothing moves.
+  const mid = badgeGeometry(120);
+  expect(mid.size).toBeCloseTo(12);
+  expect(mid.radius).toBeCloseTo(12 * 0.63);
+  expect(mid.inset).toBeCloseTo(12 * 0.63 + 7.2);
+});
+
+const art = (corner: BadgeArt['corner']): BadgeArt =>
+  ({ mark: 'pin', corner, field: '#ff8800', ink: '#ffffff' });
+
+it('lays badges sharing a corner out as a row inward from it, first nearest', () => {
+  const box = { dx: 0, dy: 0, dw: 120, dh: 120 };
+  const { radius, gap, inset } = badgeGeometry(120);
+  const step = radius * 2 + gap;
+  const [tl0, tr0, tl1, tr1, br0] = cornerBadgesAt(
+    [art('tl'), art('tr'), art('tl'), art('tr'), art('br')], box);
+  expect(tl0).toMatchObject({ cx: inset, cy: inset });
+  expect(tl1!.cx).toBeCloseTo(inset + step);
+  expect(tl1!.cy).toBe(tl0!.cy);
+  expect(tr0!.cx).toBeCloseTo(120 - inset);
+  expect(tr1!.cx).toBeCloseTo(120 - inset - step);
+  expect(br0).toMatchObject({ cx: 120 - inset, cy: 120 - inset });
+});
+
+it('starts a top caption past the row of badges in its corner', () => {
+  const box = { dx: 0, dy: 0, dw: 120, dh: 120 };
+  const badges = [art('tl'), art('tl'), art('tr')];
+  const { ctx, named } = recorder();
+  drawPaintCommand(ctx, fill({ ...box, badges: badges.map((b) => ({ tag: 't', ...b })),
+                               captions: [{ text: 'left', corner: 'tl', ink: '#000000' },
+                                          { text: 'right', corner: 'tr', ink: '#000000' }] }),
+                   null, PALETTE, OPTIONS);
+  const [tl0, tl1, tr0] = cornerBadgesAt(badges, box);
+  const x = (text: string) => named('fillText').find((c) => c.args[0] === text)!.args[1] as number;
+  expect(x('left')).toBeGreaterThan(tl1!.cx + tl1!.radius);
+  expect(tl0!.cx).toBeLessThan(tl1!.cx);
+  expect(x('right')).toBeLessThan(tr0!.cx - tr0!.radius);
 });

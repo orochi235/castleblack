@@ -2,7 +2,7 @@ import { fireEvent, render } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { compile } from '../src/cel';
 import { derive } from '../src/derive';
-import { cornerBadgeAt } from '../src/draw2d';
+import { cornerBadgeAt, cornerBadgesAt } from '../src/draw2d';
 import { gridLayout, rectAt } from '../src/layout';
 import { paintCommands, type PaintCommand } from '../src/paint';
 import { defaultPalette } from '../src/palette';
@@ -77,6 +77,26 @@ it('follows a linked badge to its target instead of picking', () => {
   expect(w.onExplicitCaretChange).toHaveBeenCalledWith(Array.from(order).indexOf(5));
   expect(w.onPan).toHaveBeenCalled();
   expect(w.onPick).not.toHaveBeenCalled();
+});
+
+it('follows the second badge of a corner row when that one is clicked', () => {
+  const rowSpec = { ...SPEC, badges: [...SPEC.badges!, { tag: 'moon', slot: 'corner' as const,
+    art: { mark: 'star', corner: 'tl' as const, field: '#222288', ink: '#ffffff' } }] };
+  const rowCompiled = compile(rowSpec);
+  const rowItems = items.map((t, i) => (i === 2 ? { ...t, labels: ['star', 'moon'] } : t));
+  const rowFacts = derive(rowCompiled, rowItems);
+  const linkTarget = vi.fn(() => 5);
+  const w = mount({ compiled: rowCompiled, facts: rowFacts, linkedBadges: ['star', 'moon'],
+                    linkTarget });
+  const [first] = paintCommands({
+    compiled: rowCompiled, facts: rowFacts, order, rect: (p) => rectAt(laid, p), visible: [0],
+    cam, manifest: null, palette: defaultPalette(rowCompiled.states),
+  }) as (PaintCommand & { kind: 'fill' })[];
+  expect(first!.badges!.map((b) => b.tag)).toEqual(['star', 'moon']);
+  const [star, moon] = cornerBadgesAt(first!.badges!, first!);
+  expect(Math.hypot(moon!.cx - star!.cx, moon!.cy - star!.cy)).toBeGreaterThan(star!.radius * 2);
+  fireEvent.click(w.canvas, { clientX: moon!.cx, clientY: moon!.cy });
+  expect(linkTarget).toHaveBeenCalledWith(2, 'moon');
 });
 
 it('picks rather than follows when the badge is not a linked one', () => {

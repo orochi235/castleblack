@@ -32,7 +32,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 };
 
 /** Below this drawn size a badge would cover the picture it is about. */
-export const BADGE_MIN_PX = 56;
+export const BADGE_MIN_PX = 80;
 /** Captions are words, and need more room than a badge. */
 export const LABEL_MIN_PX = 88;
 /** Below this a glyph is a smudge. */
@@ -131,6 +131,8 @@ export interface PaintInput<T extends Item> {
   gradient?: RampName;
   /** What every picture is drawn on. */
   ground?: string;
+  /** The drawn cell size badges appear from. Defaults to `BADGE_MIN_PX`. */
+  badgeMinPx?: number;
 }
 
 const NO_BADGES: Badge[] = [];
@@ -148,7 +150,7 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
     compiled, facts, order, rect, visible, cam, manifest, palette, loose, vector,
     highlight = null, highlightTag = null, bands, caret = null,
     appearance = DEFAULT_APPEARANCE, tint = STATUS, gradient = 'ember',
-    stale = false, ground: plainGround = DEFAULT_GROUND,
+    stale = false, ground: plainGround = DEFAULT_GROUND, badgeMinPx = BADGE_MIN_PX,
   } = input;
 
   const states = new Map(compiled.states.map((s) => [s.key, s]));
@@ -174,13 +176,13 @@ export function paintCommands<T extends Item>(input: PaintInput<T>): PaintComman
     .filter((d): d is BadgeDef => d !== undefined && d.slot === slot);
   const badge = (d: BadgeDef): Badge => ({ tag: d.tag, ...d.art });
   const cornerBadges = (row: number, px: number, labelMinPx: number): Badge[] => {
-    if (px < BADGE_MIN_PX) return [];
+    if (px < badgeMinPx) return [];
     return badgesOf(row, 'corner')
       .filter((d) => !(d.yieldsTo && px >= labelMinPx && captionOf(facts, d.yieldsTo, row)))
       .map(badge);
   };
   const stripBadges = (row: number, px: number): Badge[] =>
-    px < BADGE_MIN_PX ? [] : badgesOf(row, 'strip').map(badge);
+    px < badgeMinPx ? [] : badgesOf(row, 'strip').map(badge);
 
   const out: PaintCommand[] = [];
   const transform = viewToTransform(cam);

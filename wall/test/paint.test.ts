@@ -3,7 +3,7 @@ import { compile } from '../src/cel';
 import { derive } from '../src/derive';
 import { gridLayout, rectAt } from '../src/layout';
 import {
-  DEFAULT_APPEARANCE, paintCommands, tally, type PaintCommand, type PaintInput,
+  BADGE_MIN_PX, DEFAULT_APPEARANCE, paintCommands, tally, type PaintCommand, type PaintInput,
 } from '../src/paint';
 import { defaultPalette } from '../src/palette';
 import type { SheetManifest } from '../src/sheet';
@@ -84,7 +84,7 @@ describe('badges', () => {
 
   it('drops a badge only where the caption it yields to is drawn', () => {
     expect((one(item, 120).badges as { tag: string }[]).map((b) => b.tag)).toEqual(['star']);
-    expect((one(item, 60).badges as { tag: string }[]).map((b) => b.tag)).toEqual(['old', 'star']);
+    expect((one(item, 80).badges as { tag: string }[]).map((b) => b.tag)).toEqual(['old', 'star']);
     const uncaptioned = { appearance: { ...DEFAULT_APPEARANCE, showCaptions: false } };
     expect((one(item, 120, uncaptioned).badges as { tag: string }[]).map((b) => b.tag))
       .toEqual(['old', 'star']);
@@ -98,9 +98,16 @@ describe('badges', () => {
   });
 
   it('wears none below the badge size, and none when switched off', () => {
-    expect(one(item, 40)).toMatchObject({ badges: [], strip: [] });
+    expect(BADGE_MIN_PX).toBe(80);
+    expect(one(item, 79)).toMatchObject({ badges: [], strip: [] });
+    expect((one(item, 80).strip as unknown[]).length).toBe(1);
     const off = { appearance: { ...DEFAULT_APPEARANCE, showBadges: false } };
     expect(one(item, 120, off)).toMatchObject({ badges: [], strip: [] });
+  });
+
+  it('shows badges from a smaller size when the input asks', () => {
+    expect((one(item, 56, { badgeMinPx: 56 }).badges as unknown[]).length).toBe(2);
+    expect(one(item, 55, { badgeMinPx: 56 })).toMatchObject({ badges: [], strip: [] });
   });
 });
 

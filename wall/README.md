@@ -30,7 +30,8 @@ A `CorpusSpec` (`src/schema.ts`):
   from being brighter than the character that replaces it up close.
 - **Badges**: art per tag, in a corner or the strip, with the mark art in
   `marks`. A badge can yield to a caption, and drops wherever that caption is
-  drawn. Only a top-right caption moves aside for a corner badge.
+  drawn. Badges sharing a corner form a row inward from it, in the order the
+  tags list them, and a top caption moves aside for the row in its corner.
 - **Tints**: TypeScript functions placing an item on a ramp, with the fields
   they `reads`.
 

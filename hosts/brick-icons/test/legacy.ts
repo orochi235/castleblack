@@ -51,6 +51,8 @@ export function translate(input: LegacyInput): PaintInput<Cell> {
     bands: input.bands,
     tint: input.tint,
     gradient: input.gradient,
+    // The legacy wall still shows badges from 56px.
+    badgeMinPx: 56,
     appearance: a ? {
       thickBorderFactor: a.thickBorderFactor, thinBorderFactor: a.thinBorderFactor,
       maxBorderPx: a.maxBorderPx, dimAlpha: a.dimAlpha,
