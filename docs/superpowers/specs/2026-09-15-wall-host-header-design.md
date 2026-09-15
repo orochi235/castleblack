@@ -1,6 +1,6 @@
 # Host controls in WallView's header
 
-**Status: designed 2026-09-15, not built.**
+**Status: pezlie side built 2026-09-15; brick-icons side not yet.**
 
 This is the design for letting a host put its own slot picker and item search
 in `WallView`'s header. It is for whoever implements it, and assumes the

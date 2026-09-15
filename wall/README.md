@@ -39,6 +39,11 @@ For the page, `WallView` also takes the item and slot fetchers, a `SlotUrls`
 sidebar, and render props for the card and the detail view. `compact` leaves
 only the wall and its card, for a page embedded somewhere small; `mode` fixes
 light or dark; `paramDefaults` sets what a first visit starts from.
+`header` takes controls for the top bar, or a function of `WallHeader` — the
+slots, the current slot, `setSlot` and `reveal(id)` — for a host drawing its
+own slot picker or search; `slotPicker={false}` drops the built-in one.
+`reveal` centers a drawn item and opens its card, and answers `'filtered'` or
+`'absent'` when it cannot.
 
 `fetchItems` answers with `{ items, version }` — objects, fine for tens of
 thousands — or `{ table, version }`, an Arrow table in index order, which is
