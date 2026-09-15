@@ -1,4 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import {
+  useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode,
+} from 'react';
 import type { Rect } from './layout';
 import './ItemCard.css';
 
@@ -61,19 +63,19 @@ export function frameCard(cell: Rect, viewport: Size,
   };
 }
 
-export interface ItemCardProps {
-  /** Where the card sits when there is no cell to frame. */
-  at?: Point;
-  /** The cell's on-screen rect. Given one, the card is a frame around it. */
-  cell?: Rect;
+interface ItemCardBase {
   viewport: Size;
   onClose: () => void;
   /** Whether the pointer is over the card: a zoom drops the card, except the
-   *  one being read. */
+   *  one being read. A framed card counts its opening as itself. */
   onHoverChange?: (over: boolean) => void;
   label?: string;
   children: ReactNode;
 }
+
+/** Either anchored past a point or framing a cell -- never neither. */
+export type ItemCardProps = ItemCardBase
+  & ({ at: Point; cell?: undefined } | { cell: Rect; at?: undefined });
 
 const ORIGIN: Point = { x: 0, y: 0 };
 
@@ -81,20 +83,24 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
                            children }: ItemCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const openingRef = useRef<HTMLDivElement>(null);
-  const frame = cell ? frameCard(cell, viewport) : null;
+  const frame = useMemo(() => (cell ? frameCard(cell, viewport) : null), [cell, viewport]);
+
+  const inOpening = useCallback((x: number, y: number) => {
+    const open = openingRef.current?.getBoundingClientRect();
+    return !!open && x >= open.left && x <= open.right && y >= open.top && y <= open.bottom;
+  }, []);
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.style.setProperty('--card-pad', `${CARD_PAD}px`);
-    if (cell) {
-      const box = frameCard(cell, viewport);
-      el.style.setProperty('--card-x', `${box.x}px`);
-      el.style.setProperty('--card-y', `${box.y}px`);
-      el.style.setProperty('--card-w', `${box.width}px`);
-      el.style.setProperty('--card-h', `${box.height}px`);
-      el.style.setProperty('--open-w', `${box.opening.width}px`);
-      el.style.setProperty('--open-h', `${box.opening.height}px`);
+    if (frame) {
+      el.style.setProperty('--card-x', `${frame.x}px`);
+      el.style.setProperty('--card-y', `${frame.y}px`);
+      el.style.setProperty('--card-w', `${frame.width}px`);
+      el.style.setProperty('--card-h', `${frame.height}px`);
+      el.style.setProperty('--open-w', `${frame.opening.width}px`);
+      el.style.setProperty('--open-h', `${frame.opening.height}px`);
       return;
     }
     const { x, y } = placeCard(at ?? ORIGIN, viewport, {
@@ -103,17 +109,15 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
     });
     el.style.setProperty('--card-x', `${x}px`);
     el.style.setProperty('--card-y', `${y}px`);
-  }, [at, cell, viewport]);
+  }, [at, frame, viewport]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     const onPress = (e: PointerEvent) => {
       if (ref.current?.contains(e.target as Node)) return;
-      // The opening lets the press through to the wall; the card it belongs to
-      // must not read that as a press outside itself.
-      const open = openingRef.current?.getBoundingClientRect();
-      if (open && e.clientX >= open.left && e.clientX <= open.right
-          && e.clientY >= open.top && e.clientY <= open.bottom) return;
+      // The opening is a hole: a press there is a press on the cell this card
+      // is framing, not one outside it.
+      if (inOpening(e.clientX, e.clientY)) return;
       onClose();
     };
     window.addEventListener('keydown', onKey);
@@ -123,15 +127,40 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPress, true);
     };
-  }, [onClose]);
+  }, [onClose, inOpening]);
+
+  const over = useRef(false);
+  const hover = useRef(onHoverChange);
+  hover.current = onHoverChange;
+  const report = useCallback((now: boolean) => {
+    if (now === over.current) return;
+    over.current = now;
+    hover.current?.(now);
+  }, []);
+
+  const framed = frame !== null;
+  useEffect(() => {
+    if (!framed) return;
+    // The pointer over the opening has left the frame's own box, and enter and
+    // leave alone would call the card being read unhovered.
+    const onMove = (e: PointerEvent) =>
+      report(!!ref.current?.contains(e.target as Node) || inOpening(e.clientX, e.clientY));
+    document.addEventListener('pointermove', onMove, true);
+    return () => {
+      document.removeEventListener('pointermove', onMove, true);
+      report(false);
+    };
+  }, [framed, inOpening, report]);
 
   const className = ['wall-card', frame ? 'wall-card--framed' : '',
                      frame?.side === 'left' ? 'wall-card--left' : ''].filter(Boolean).join(' ');
+  const hovering = framed ? {} : {
+    onPointerEnter: () => report(true),
+    onPointerLeave: () => report(false),
+  };
 
   return (
-    <div className={className} ref={ref} role="dialog" aria-label={label}
-         onPointerEnter={() => onHoverChange?.(true)}
-         onPointerLeave={() => onHoverChange?.(false)}>
+    <div className={className} ref={ref} role="dialog" aria-label={label} {...hovering}>
       {frame ? (
         <>
           <div className="wall-card__pane wall-card__pane--top" />

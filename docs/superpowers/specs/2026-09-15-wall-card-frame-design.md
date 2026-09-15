@@ -1,6 +1,8 @@
 # The item card as a frame around its cell
 
-**Status: designed 2026-09-15, not built.**
+**Status: the pezlie library half — `ItemCard`'s anchored mode and `Wall`'s
+`onPick` position — landed in `7bdd28e` on 2026-09-15. The `WallView` wiring
+and the brick-icons side are not built.**
 
 This is the design for turning `WallView`'s item card from a panel beside the click into an opaque frame around the clicked cell itself. It is for whoever implements it, and assumes the `wall/` package and brick-icons' `/wall` page (`lab/src/wall/BrickWall.tsx`).
 

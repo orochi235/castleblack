@@ -18,44 +18,50 @@
 }
 
 /* Over the wall's own ground: a theme's surface tokens can be translucent, and
- * a busy wall reads straight through them. `Canvas` follows the theme's
- * color-scheme, so the base underneath is opaque without naming a color. */
+ * a busy wall reads straight through them. The floor is the theme's own page
+ * color, so the composite is opaque without naming one. */
 .wall-card:not(.wall-card--framed),
 .wall-card__pane,
 .wall-card__details {
-  background-color: Canvas;
+  background-color: var(--wzl-surface, Canvas);
   background-image:
     linear-gradient(var(--wzl-surface-raised), var(--wzl-surface-raised)),
     linear-gradient(var(--wzl-surface-sunken), var(--wzl-surface-sunken));
 }
 
-/* The frame is the four panes around the opening; the card itself paints
- * nothing, so the cell shows through the middle. */
+/* The frame is the panes around the opening; the card itself paints nothing
+ * and takes no pointer events, so the cell in the middle is a real hole --
+ * `pointer-events: none` on the opening alone would still leave the card's own
+ * box in front of the canvas. A border and a row gap would both push the
+ * opening off the cell, so the frame carries neither. */
 .wall-card--framed {
   width: var(--card-w);
   height: var(--card-h);
   max-height: none;
   padding: 0;
-  overflow: visible;
+  gap: 0;
+  border: 0;
+  outline: var(--wzl-border-w) solid var(--wzl-border);
+  overflow: hidden;
+  pointer-events: none;
   display: grid;
   grid-template-columns: var(--card-pad) var(--open-w) 1fr;
   grid-template-rows: var(--card-pad) var(--open-h) var(--card-pad);
 }
 
+.wall-card--framed > .wall-card__pane,
+.wall-card--framed > .wall-card__details { pointer-events: auto; }
+
 .wall-card--left { grid-template-columns: 1fr var(--open-w) var(--card-pad); }
 
-.wall-card__pane--top { grid-area: 1 / 1 / 2 / 4; }
-.wall-card__pane--bottom { grid-area: 3 / 1 / 4 / 4; }
+.wall-card__pane--top { grid-area: 1 / 1 / 2 / 3; }
+.wall-card__pane--bottom { grid-area: 3 / 1 / 4 / 3; }
 .wall-card__pane--side { grid-area: 2 / 1 / 3 / 2; }
+.wall-card__opening { grid-area: 2 / 2 / 3 / 3; }
 
-.wall-card__opening {
-  grid-area: 2 / 2 / 3 / 3;
-  /* A click, a double click and a drag belong to the cell underneath. */
-  pointer-events: none;
-}
-
+/* The full height of the frame, opening and both pads. */
 .wall-card__details {
-  grid-area: 2 / 3 / 3 / 4;
+  grid-area: 1 / 3 / 4 / 4;
   box-sizing: border-box;
   padding: var(--card-pad);
   display: flex;
@@ -64,5 +70,7 @@
   overflow: auto;
 }
 
+.wall-card--left .wall-card__pane--top { grid-area: 1 / 2 / 2 / 4; }
+.wall-card--left .wall-card__pane--bottom { grid-area: 3 / 2 / 4 / 4; }
 .wall-card--left .wall-card__pane--side { grid-area: 2 / 3 / 3 / 4; }
-.wall-card--left .wall-card__details { grid-area: 2 / 1 / 3 / 2; }
+.wall-card--left .wall-card__details { grid-area: 1 / 1 / 4 / 2; }

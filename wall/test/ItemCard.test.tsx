@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
@@ -9,9 +10,20 @@ afterEach(cleanup);
 
 const VIEWPORT = { width: 1000, height: 800 };
 
-const card = (props: Partial<Parameters<typeof ItemCard>[0]> = {}) => (
-  <ItemCard at={{ x: 100, y: 100 }} viewport={VIEWPORT} onClose={() => {}} {...props}>
-    {props.children ?? <p>item seven</p>}
+/** Everything but the anchor, which each helper below pins itself: the props
+ *  are a union, so `at` and `cell` cannot travel together. */
+interface Extra {
+  viewport?: { width: number; height: number };
+  onClose?: () => void;
+  onHoverChange?: (over: boolean) => void;
+  label?: string;
+  children?: ReactNode;
+}
+
+const card = ({ at = { x: 100, y: 100 }, viewport = VIEWPORT, onClose = () => {}, children,
+                ...rest }: Extra & { at?: { x: number; y: number } } = {}) => (
+  <ItemCard at={at} viewport={viewport} onClose={onClose} {...rest}>
+    {children ?? <p>item seven</p>}
   </ItemCard>
 );
 
@@ -122,11 +134,21 @@ it('keeps the details right when neither side has room, rather than sliding off 
   expect(frameCard({ ...CELL, x: 100 }, { width: 400, height: 800 }).side).toBe('right');
 });
 
-const framed = (props: Partial<Parameters<typeof ItemCard>[0]> = {}) => (
-  <ItemCard cell={CELL} viewport={VIEWPORT} onClose={() => {}} {...props}>
-    {props.children ?? <p>item seven</p>}
+const framed = ({ cell = CELL, viewport = VIEWPORT, onClose = () => {}, children,
+                  ...rest }: Extra & { cell?: typeof CELL } = {}) => (
+  <ItemCard cell={cell} viewport={viewport} onClose={onClose} {...rest}>
+    {children ?? <p>item seven</p>}
   </ItemCard>
 );
+
+/** jsdom lays nothing out; the opening is where the frame put it. */
+const pinOpening = (container: HTMLElement) => {
+  const opening = container.querySelector('.wall-card__opening') as HTMLElement;
+  vi.spyOn(opening, 'getBoundingClientRect').mockReturnValue(
+    { left: CELL.x, top: CELL.y, right: CELL.x + CELL.w, bottom: CELL.y + CELL.h,
+      width: CELL.w, height: CELL.h, x: CELL.x, y: CELL.y, toJSON() { return {}; } } as DOMRect);
+  return opening;
+};
 
 it('draws an opening the size of the cell, with the details beside it', () => {
   const { container } = render(framed());
@@ -143,13 +165,20 @@ it('draws an opening the size of the cell, with the details beside it', () => {
 it('counts a press in the opening as a press on itself, so the cell stays framed', () => {
   const onClose = vi.fn();
   const { container } = render(framed({ onClose }));
-  const opening = container.querySelector('.wall-card__opening') as HTMLElement;
-  // jsdom lays nothing out; the opening is where the frame put it.
-  vi.spyOn(opening, 'getBoundingClientRect').mockReturnValue(
-    { left: CELL.x, top: CELL.y, right: CELL.x + CELL.w, bottom: CELL.y + CELL.h,
-      width: CELL.w, height: CELL.h, x: CELL.x, y: CELL.y, toJSON() { return {}; } } as DOMRect);
+  pinOpening(container);
   fireEvent.pointerDown(document.body, { clientX: CELL.x + 10, clientY: CELL.y + 10 });
   expect(onClose).not.toHaveBeenCalled();
   fireEvent.pointerDown(document.body, { clientX: CELL.x - 40, clientY: CELL.y + 10 });
   expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+it('reads the pointer over the opening as over itself, so a zoom spares it', () => {
+  const onHoverChange = vi.fn();
+  const { container } = render(framed({ onHoverChange }));
+  pinOpening(container);
+  // Over the cell the frame surrounds: the card is the one being read.
+  fireEvent.pointerMove(document.body, { clientX: CELL.x + 10, clientY: CELL.y + 10 });
+  expect(onHoverChange).toHaveBeenLastCalledWith(true);
+  fireEvent.pointerMove(document.body, { clientX: CELL.x - 60, clientY: CELL.y + 10 });
+  expect(onHoverChange).toHaveBeenLastCalledWith(false);
 });

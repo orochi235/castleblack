@@ -58,7 +58,10 @@ export interface WallProps<T extends Item> {
   onExplicitCaretChange: (position: number | null) => void;
   onPan: (next: View) => void;
   /** `position` is where the row sits in `laid.order`, which the hit test
-   *  already knows: a host anchoring to the cell needs it to find the rect. */
+   *  already knows: a host anchoring to the cell needs it to find the rect.
+   *  It is only meaningful against the `laid` it came from -- a sort or a
+   *  regroup between the pick and the next render moves the row elsewhere,
+   *  and the position then names a different cell. */
   onPick: (row: number, at: { x: number; y: number }, position: number) => void;
   /** A drag has passed the threshold and the wall moves under anything
    *  anchored to it. */
