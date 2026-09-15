@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status: written 2026-09-15, not started.**
+**Status: done 2026-09-15.** Review added a pezlie fix keeping `WallView`'s own header controls from shrinking (`6ca5786`), and brick-icons' search wrapper and hanging notice; the brick-icons branch `wall-header` is not yet merged.
 
 **Goal:** Let a `WallView` host draw its own slot picker and item search in the header. Use it to put brick-icons' `FilterBar` and `PartSearch` on `/wall`.
 

@@ -1,6 +1,6 @@
 # Host controls in WallView's header
 
-**Status: pezlie side built 2026-09-15; brick-icons side not yet.**
+**Status: built 2026-09-15.** brick-icons' side is on its `wall-header` branch, not yet merged. The header row also needed pezlie's own controls made non-shrinking (`.wall-panels`, `.wall-cachefail`), which the design below did not foresee.
 
 This is the design for letting a host put its own slot picker and item search
 in `WallView`'s header. It is for whoever implements it, and assumes the
