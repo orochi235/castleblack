@@ -1,4 +1,6 @@
-.wall-cachefail { position: relative; display: inline-flex; }
+.wall-cachefail { position: relative; display: inline-flex; flex: none; }
+
+.wall-cachefail .wall-action { white-space: nowrap; }
 
 /* Out of the header's flow: the findings run to a couple of sentences each
    and would push the rest of the row off the end. */

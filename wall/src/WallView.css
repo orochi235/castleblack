@@ -12,6 +12,9 @@ body { margin: 0; }
  * controls; these are boxes in a toolbar and align by their centers. */
 .lk-shell-header, .lk-shell-header-actions { align-items: center; }
 
+/* A host's header controls must not squeeze pezlie's own. */
+.wall-panels { flex: none; }
+
 .wall-app {
   display: flex;
   flex-direction: row;

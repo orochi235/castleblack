@@ -490,6 +490,7 @@ function WallViewBody<T extends Item>({
                   {typeof header === 'function'
                     ? header({ slots, slot, setSlot: chooseSlot, reveal }) : header}
                   <ToggleBar mode="multiple" size="sm" variant="minimal" ariaLabel="Panels"
+                             className="wall-panels"
                              items={[{ value: 'legend', label: 'Legend' }]}
                              value={legendOpen ? ['legend'] : []}
                              onChange={(v) => setLegendOpen(v.includes('legend'))} />
