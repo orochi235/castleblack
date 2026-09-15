@@ -1,7 +1,7 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { defaultUrls } from '../src/urls';
-import { WallView } from '../src/WallView';
+import { WallView, type WallHeader } from '../src/WallView';
 import { SPEC, thing, type Thing } from './fixture';
 
 const urls = defaultUrls('/api');
@@ -64,4 +64,34 @@ it('lists every problem in a bad spec instead of drawing the wall', () => {
   expect(alert.textContent).toContain('2 problems');
   expect(alert.textContent).toContain('states.warn');
   expect(alert.textContent).toContain('filters.drawn');
+});
+
+it('hands a header function the slots, and lets it change the slot', async () => {
+  let wall: WallHeader | undefined;
+  const { fetchItems } = mount({
+    defaultSlot: 'north',
+    fetchSlots: vi.fn(() => Promise.resolve([{ slot: 'north', n: 3 }, { slot: 'south', n: 1 }])),
+    header: (w) => { wall = w; return <span>on {w.slot} of {w.slots.length}</span>; },
+  });
+  await screen.findByText('on north of 2');
+  act(() => wall!.setSlot('south'));
+  await waitFor(() => expect(fetchItems).toHaveBeenCalledWith('south', undefined));
+});
+
+it('still renders a plain header node', async () => {
+  mount({ defaultSlot: 'north', header: <span>extra</span> });
+  expect(await screen.findByText('extra')).toBeTruthy();
+});
+
+// By class: the label's text also holds every option's, so no label query matches it.
+it('draws its own slot picker by default', async () => {
+  mount({ defaultSlot: 'north' });
+  await waitFor(() => expect(document.querySelector('.wall-slot select')).toBeTruthy());
+});
+
+it('draws no slot picker when the host takes it over', async () => {
+  const { fetchSlots } = mount({ defaultSlot: 'north', slotPicker: false });
+  await waitFor(() => expect(fetchSlots).toHaveBeenCalled());
+  await screen.findByText('warning');
+  expect(document.querySelector('.wall-slot')).toBeNull();
 });

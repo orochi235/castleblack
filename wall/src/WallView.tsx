@@ -62,6 +62,18 @@ export interface WallViewState {
   opened: string | null;
 }
 
+/** What `reveal` found: drawn and now centered, loaded but hidden by the
+ *  selection, or not in the drawn slot at all. */
+export type RevealResult = 'shown' | 'filtered' | 'absent';
+
+/** The slot state a host's header controls read and drive. */
+export interface WallHeader {
+  slots: { slot: string; n: number }[];
+  slot: string;
+  setSlot: (slot: string) => void;
+  reveal: (id: string) => RevealResult;
+}
+
 export interface WallViewProps<T extends Item> {
   title: string;
   spec: CorpusSpec<T>;
@@ -74,8 +86,11 @@ export interface WallViewProps<T extends Item> {
   storageKey: string;
   cssRoot?: string;
   pages?: ComponentProps<typeof LabShell>['pages'];
-  /** Extra header controls, after the slot picker. */
-  header?: ReactNode;
+  /** Controls between the slot picker and the panels toggle. A function gets
+   *  the slot state and `reveal`, for a host drawing its own picker or search. */
+  header?: ReactNode | ((wall: WallHeader) => ReactNode);
+  /** False drops the built-in slot select, for a host that draws its own. */
+  slotPicker?: boolean;
   groupings?: WallGrouping<T>[];
   facet?: { key: string; label: string; groupOf?: (value: string) => string | null };
   /** The body of the card a click opens. No card without it. `open` opens the
@@ -143,8 +158,9 @@ function initialSelection<T extends Item>(compiled: CompiledSpec<T>,
 
 function WallViewBody<T extends Item>({
   compiled, title, urls, fetchItems, fetchSlots, defaultSlot, storageKey, cssRoot = '--wall',
-  pages, header, groupings = [], facet, renderCard, renderDetail, linkedBadges, linkTarget,
-  drawMark, washColor, ground, describe, initial, onChange, compact = false, mode, paramDefaults,
+  pages, header, slotPicker = true, groupings = [], facet, renderCard, renderDetail, linkedBadges,
+  linkTarget, drawMark, washColor, ground, describe, initial, onChange, compact = false, mode,
+  paramDefaults,
 }: WallViewProps<T> & { compiled: CompiledSpec<T> }) {
   const schema = useMemo(() => {
     const base = paramSchema(compiled.states);
@@ -430,11 +446,13 @@ function WallViewBody<T extends Item>({
   const openedItem = opened !== null && openedRow !== null && facts && openedRow < facts.store.length
     && facts.store.id(openedRow) === opened ? facts.store.get(openedRow) : itemAt(opened);
 
+  const reveal = (_id: string): RevealResult => 'absent';
+
   return (
     <LabShell title={title} pages={pages} mode={mode}
               header={compact ? undefined : (
                 <>
-                  {slots.length > 0 && (
+                  {slotPicker && slots.length > 0 && (
                     <label className="wall-slot">
                       <span>slot</span>
                       <select value={slot} onChange={(e) => setSlot(e.target.value)}>
@@ -444,7 +462,7 @@ function WallViewBody<T extends Item>({
                       </select>
                     </label>
                   )}
-                  {header}
+                  {typeof header === 'function' ? header({ slots, slot, setSlot, reveal }) : header}
                   <ToggleBar mode="multiple" size="sm" variant="minimal" ariaLabel="Panels"
                              items={[{ value: 'legend', label: 'Legend' }]}
                              value={legendOpen ? ['legend'] : []}
