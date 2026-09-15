@@ -51,10 +51,6 @@ export function badgeGeometry(cellPx: number) {
   return { size, radius, pad, gap, inset: radius + pad, rise: radius + pad, fall: radius + pad };
 }
 
-/** How far a caption's ink centers above canvas's `middle` baseline, as a
- *  fraction of the type size; measured on `THUMB_FACE`. */
-export const CAPTION_INK_RISE = 0.0823;
-
 // A stroke straddles its path, so inset by half the width or it eats into
 // the neighboring cells.
 export function strokeBorder(ctx: CanvasRenderingContext2D,
@@ -158,10 +154,12 @@ export function cornerBadgeAt(badge: BadgeArt, cmd: Box, index = 0) {
 
 /** Every corner badge's disc, in the order given, each placed in its corner's
  *  row. A row longer than its half of the cell stacks the rest on its last
- *  place rather than running past the middle. */
+ *  place rather than running past the middle, and a hit test over a stack
+ *  finds only the first badge of it. */
 export function cornerBadgesAt(badges: readonly BadgeArt[], cmd: Box) {
   const { radius, gap, inset } = badgeGeometry(cmd.dw);
-  const last = Math.max(0, Math.floor((cmd.dw / 2 - inset) / (radius * 2 + gap)));
+  // A radius of headroom: the rows from facing corners must not meet.
+  const last = Math.max(0, Math.floor((cmd.dw / 2 - inset - radius) / (radius * 2 + gap)));
   const seen: Record<string, number> = {};
   return badges.map((badge) => {
     const corner = badge.corner ?? 'tl';
@@ -233,17 +231,20 @@ export function drawOverlays(ctx: CanvasRenderingContext2D,
   const { radius, pad } = badgeGeometry(box.dw);
   const badges = cmd.badges ?? [];
   let stripX = box.dx + pad;
-  const count = { tl: 0, tr: 0, br: 0 };
-  for (const b of badges) count[b.corner ?? 'tl']++;
+  const count: Record<string, number> = {};
+  for (const b of badges) {
+    const corner = b.corner ?? 'tl';
+    count[corner] = (count[corner] ?? 0) + 1;
+  }
   const clear = (n: number) => (n === 0 ? 0 : pad + rowWidth(box.dw, n) + radius * 0.6);
   for (const caption of cmd.captions ?? []) {
     const end = drawCaption(ctx, caption, box,
-                            caption.corner === 'bl' ? 0 : clear(count[caption.corner]));
+                            caption.corner === 'bl' ? 0 : clear(count[caption.corner] ?? 0));
     if (caption.corner === 'bl') stripX = end + radius * 0.6;
   }
   const at = cornerBadgesAt(badges, box);
   badges.forEach((badge, i) => drawBadge(ctx, badge, at[i]!, options.marks));
-  drawStrip(ctx, cmd.strip ?? [], box, stripX, count.br, options.marks);
+  drawStrip(ctx, cmd.strip ?? [], box, stripX, count.br ?? 0, options.marks);
 }
 
 /** One paint command, shifted by `options.offset` -- how a loupe redraws the

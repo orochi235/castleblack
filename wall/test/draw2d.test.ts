@@ -254,7 +254,8 @@ it('sets the strip on the badge row\'s own line and stops it short of the '
   const run = (badges: { tag: string }[]) => {
     const { ctx, named } = recorder();
     drawPaintCommand(ctx, fill({ ...cell, strip, badges }), null, PALETTE, OPTIONS);
-    return named('fillText').filter((c) => c.args[0] === 'B').map((c) => c.args[1] as number);
+    return named('fillText').filter((c) => c.args[0] === 'B')
+      .map((c) => ({ x: c.args[1] as number, y: c.args[2] as number }));
   };
   const corner = { tag: 'c', mark: 'pin', corner: 'br' as const,
                    field: '#ff8800', ink: '#ffffff' };
@@ -264,8 +265,12 @@ it('sets the strip on the badge row\'s own line and stops it short of the '
   expect(run([corner]).length).toBe(alone.length);
   const beside = run([corner, corner]);
   expect(beside.length).toBe(alone.length - 1);
-  expect(alone[alone.length - 1]! - beside[beside.length - 1]!).toBeCloseTo(radius * 2 + gap);
-  // Every strip disc sits on the bottom-right badge's line.
+  expect(alone[alone.length - 1]!.x - beside[beside.length - 1]!.x)
+    .toBeCloseTo(radius * 2 + gap);
+  // Every strip disc sits on the bottom-right badge's line. The recorder's ink
+  // rises 6 above the baseline and falls 2 below, so a letter centers 2 under
+  // its disc's center.
   const [br] = cornerBadgesAt([art('br')], { dx: 0, dy: 0, ...cell });
   expect(br!.cy).toBeCloseTo(cell.dh - fall);
+  for (const disc of alone) expect(disc.y).toBeCloseTo(br!.cy + 2);
 });
