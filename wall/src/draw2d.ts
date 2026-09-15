@@ -3,7 +3,7 @@
  *  `paint.ts` decides what to draw; this decides nothing, so a second executor
  *  can be measured against it over the identical command list.
  */
-import { BADGE_FACE, BADGE_WEIGHT, THUMB_FACE, drawBadge, drawMarkShapes } from './badgeDraw';
+import { THUMB_FACE, drawBadge, drawMarkShapes } from './badgeDraw';
 import type { Marks } from './marks';
 import { glyphBlend, WEIGHT_ID, WEIGHT_TEXT, type Caption, type PaintCommand } from './paint';
 import type { Palette } from './palette';
@@ -40,7 +40,8 @@ export const BADGE_RADIUS = 0.063;
 export const BADGE_INSET = 0.06;
 
 /** How big a badge is drawn on a cell this wide and how far its center sits in
- *  from the edge. The hit test must use this too, or a click misses the disc. */
+ *  from the edge. A hit test places discs with `cornerBadgesAt`, which is built
+ *  on this, or a click misses the disc. */
 export function badgeGeometry(cellPx: number) {
   const radius = BADGE_RADIUS * cellPx;
   // The type size a disc's letter is set at, in step with the disc.
@@ -141,7 +142,8 @@ function rowWidth(cellPx: number, count: number): number {
 }
 
 /** Where a corner badge's disc sits, `index` places along the row its corner's
- *  badges form inward from that corner. The hit test must use this too. */
+ *  badges form inward from that corner. `cornerBadgesAt` places a whole cell's
+ *  badges, and is what the hit test uses. */
 export function cornerBadgeAt(badge: BadgeArt, cmd: Box, index = 0) {
   const { size, radius, gap, inset, rise, fall } = badgeGeometry(cmd.dw);
   const right = badge.corner === 'br' || badge.corner === 'tr';
@@ -154,35 +156,34 @@ export function cornerBadgeAt(badge: BadgeArt, cmd: Box, index = 0) {
   };
 }
 
-/** Every corner badge's disc, in the order given, each placed in its corner's row. */
+/** Every corner badge's disc, in the order given, each placed in its corner's
+ *  row. A row longer than its half of the cell stacks the rest on its last
+ *  place rather than running past the middle. */
 export function cornerBadgesAt(badges: readonly BadgeArt[], cmd: Box) {
-  const seen = { tl: 0, tr: 0, br: 0 };
-  return badges.map((badge) => cornerBadgeAt(badge, cmd, seen[badge.corner ?? 'tl']++));
+  const { radius, gap, inset } = badgeGeometry(cmd.dw);
+  const last = Math.max(0, Math.floor((cmd.dw / 2 - inset) / (radius * 2 + gap)));
+  const seen: Record<string, number> = {};
+  return badges.map((badge) => {
+    const corner = badge.corner ?? 'tl';
+    const index = seen[corner] ?? 0;
+    seen[corner] = index + 1;
+    return cornerBadgeAt(badge, cmd, Math.min(index, last));
+  });
 }
 
-function capHalf(ctx: CanvasRenderingContext2D, size: number): number {
-  const ascent = ctx.measureText('H').actualBoundingBoxAscent;
-  return Number.isFinite(ascent) && ascent > 0 ? ascent / 2 : size * 0.35;
-}
-
-// Runs along the bottom-left caption's baseline and stops short of the
+// Starts where the bottom-left caption ended but rides the badge row's own
+// height, so a strip disc and a bottom-right one line up; stops short of the
 // bottom-right corner row, leaving room for one badge there even when empty.
 function drawStrip(ctx: CanvasRenderingContext2D, strip: readonly BadgeArt[], cmd: Box,
                    startX: number, bottomRight: number, marks: Marks) {
   if (strip.length === 0) return;
-  const { size, radius, pad, gap } = badgeGeometry(cmd.dw);
+  const { size, radius, pad, gap, fall } = badgeGeometry(cmd.dw);
   const limit = cmd.dx + cmd.dw - pad - rowWidth(cmd.dw, Math.max(1, bottomRight)) - gap;
-  const type = captionSize(cmd.dw);
-  ctx.save();
-  ctx.font = `${BADGE_WEIGHT} ${type}px ${BADGE_FACE}`;
-  const half = capHalf(ctx, type);
-  ctx.restore();
-  const baseline = cmd.dy + cmd.dh - cornerPad(cmd.dw, type) - type * 0.5 + half;
-  const cy = baseline - half - type * CAPTION_INK_RISE;
+  const cy = cmd.dy + cmd.dh - fall;
   let cx = startX + radius;
   for (const badge of strip) {
     if (cx + radius > limit) return;
-    drawBadge(ctx, badge, { cx, cy, size, radius, baseline }, marks);
+    drawBadge(ctx, badge, { cx, cy, size, radius }, marks);
     cx += radius * 2 + gap;
   }
 }
@@ -200,7 +201,7 @@ function drawCaption(ctx: CanvasRenderingContext2D, caption: Caption, cmd: Box,
   ctx.textBaseline = 'middle';
   const pad = cornerPad(cmd.dw, size);
   ctx.fillStyle = caption.ink;
-  const from = Math.max(pad, clear);
+  const from = Math.min(Math.max(pad, clear), cmd.dw / 2);
   const x = right ? cmd.dx + cmd.dw - from : cmd.dx + from;
   ctx.fillText(caption.text, x,
                top ? cmd.dy + pad + size * 0.5 : cmd.dy + cmd.dh - pad - size * 0.5);

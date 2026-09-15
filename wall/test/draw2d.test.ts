@@ -194,11 +194,15 @@ it('lays badges sharing a corner out as a row inward from it, first nearest', ()
   const [tl0, tr0, tl1, tr1, br0] = cornerBadgesAt(
     [art('tl'), art('tr'), art('tl'), art('tr'), art('br')], box);
   expect(tl0).toMatchObject({ cx: inset, cy: inset });
-  expect(tl1!.cx).toBeCloseTo(inset + step);
+  // 120 * 0.063 * 2 apart plus half a radius of daylight: discs that touched
+  // would read as one badge.
+  expect(tl1!.cx - tl0!.cx).toBeCloseTo(18.9);
+  expect(tl1!.cx - tl0!.cx).toBeGreaterThan(radius * 2);
   expect(tl1!.cy).toBe(tl0!.cy);
   expect(tr0!.cx).toBeCloseTo(120 - inset);
-  expect(tr1!.cx).toBeCloseTo(120 - inset - step);
+  expect(tr0!.cx - tr1!.cx).toBeCloseTo(18.9);
   expect(br0).toMatchObject({ cx: 120 - inset, cy: 120 - inset });
+  expect(step).toBeCloseTo(18.9);
 });
 
 it('starts a top caption past the row of badges in its corner', () => {
@@ -214,4 +218,54 @@ it('starts a top caption past the row of badges in its corner', () => {
   expect(x('left')).toBeGreaterThan(tl1!.cx + tl1!.radius);
   expect(tl0!.cx).toBeLessThan(tl1!.cx);
   expect(x('right')).toBeLessThan(tr0!.cx - tr0!.radius);
+});
+
+it('stacks a row that would cross the cell\'s middle on its last place', () => {
+  const box = { dx: 0, dy: 0, dw: 120, dh: 120 };
+  const discs = cornerBadgesAt(Array.from({ length: 6 }, () => art('tl')), box);
+  for (const d of discs) {
+    expect(d.cx + d.radius).toBeLessThanOrEqual(box.dw);
+    expect(d.cx).toBeLessThanOrEqual(box.dw / 2);
+  }
+  expect(new Set(discs.map((d) => d.cx)).size).toBeLessThan(discs.length);
+  const right = cornerBadgesAt(Array.from({ length: 6 }, () => art('tr')), box);
+  for (const d of right) {
+    expect(d.cx - d.radius).toBeGreaterThanOrEqual(0);
+    expect(d.cx).toBeGreaterThanOrEqual(box.dw / 2);
+  }
+});
+
+it('starts a caption pushed by a long row no further than halfway', () => {
+  const badges = Array.from({ length: 6 }, () => ({ tag: 't', ...art('tl') }));
+  const { ctx, named } = recorder();
+  drawPaintCommand(ctx, fill({ dw: 120, dh: 120, badges,
+                               captions: [{ text: 'left', corner: 'tl', ink: '#000000' }] }),
+                   null, PALETTE, OPTIONS);
+  const x = named('fillText').find((c) => c.args[0] === 'left')!.args[1] as number;
+  expect(x).toBeCloseTo(60);
+});
+
+it('sets the strip on the badge row\'s own line and stops it short of the '
+   + 'bottom-right row', () => {
+  const strip = Array.from({ length: 10 }, () => ({ tag: 's', text: 'B',
+                                                    field: '#222288', ink: '#ffffff' }));
+  const cell = { dw: 400, dh: 400 };
+  const { fall, radius, gap } = badgeGeometry(cell.dw);
+  const run = (badges: { tag: string }[]) => {
+    const { ctx, named } = recorder();
+    drawPaintCommand(ctx, fill({ ...cell, strip, badges }), null, PALETTE, OPTIONS);
+    return named('fillText').filter((c) => c.args[0] === 'B').map((c) => c.args[1] as number);
+  };
+  const corner = { tag: 'c', mark: 'pin', corner: 'br' as const,
+                   field: '#ff8800', ink: '#ffffff' };
+  const alone = run([]);
+  // One bottom-right badge fills the slot the strip leaves empty anyway; the
+  // second takes a strip place.
+  expect(run([corner]).length).toBe(alone.length);
+  const beside = run([corner, corner]);
+  expect(beside.length).toBe(alone.length - 1);
+  expect(alone[alone.length - 1]! - beside[beside.length - 1]!).toBeCloseTo(radius * 2 + gap);
+  // Every strip disc sits on the bottom-right badge's line.
+  const [br] = cornerBadgesAt([art('br')], { dx: 0, dy: 0, ...cell });
+  expect(br!.cy).toBeCloseTo(cell.dh - fall);
 });

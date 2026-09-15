@@ -131,7 +131,9 @@ export interface PaintInput<T extends Item> {
   gradient?: RampName;
   /** What every picture is drawn on. */
   ground?: string;
-  /** The drawn cell size badges appear from. Defaults to `BADGE_MIN_PX`. */
+  /** The drawn cell size badges appear from, for a caller replaying another
+   *  wall's threshold -- brick-icons' legacy painter shows them from 56px.
+   *  Deliberately not a `Wall` or `WallView` prop. Defaults to `BADGE_MIN_PX`. */
   badgeMinPx?: number;
 }
 
