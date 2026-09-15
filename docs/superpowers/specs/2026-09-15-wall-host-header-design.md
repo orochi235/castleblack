@@ -85,7 +85,8 @@ function rendering:
 the pezlie side. That brings in the commits between, which add `compact`,
 `mode`, `paramDefaults`, tiles and the WebGL cell bodies. The test for
 `BrickWall` renders it against a stub client, and checks that the engine
-toggle is present and that a search for a filtered-out part shows the notice.
+toggle is present and that a search for a part not in the slot shows the notice.
+The notice's wording is its own small function with its own test.
 
 ## Order and verification
 
