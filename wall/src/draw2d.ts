@@ -132,7 +132,8 @@ export function drawGlyph(ctx: CanvasRenderingContext2D, glyph: string, box: Box
 
 /** How wide a row of `count` badges runs on a cell this wide. */
 function rowWidth(cellPx: number, count: number): number {
-  if (count <= 0) return 0;
+  // Not `count <= 0`: that lets NaN through, and every later width is NaN.
+  if (!(count > 0)) return 0;
   const { radius, gap } = badgeGeometry(cellPx);
   return count * radius * 2 + (count - 1) * gap;
 }

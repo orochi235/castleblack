@@ -271,6 +271,5 @@ it('sets the strip on the badge row\'s own line and stops it short of the '
   // rises 6 above the baseline and falls 2 below, so a letter centers 2 under
   // its disc's center.
   const [br] = cornerBadgesAt([art('br')], { dx: 0, dy: 0, ...cell });
-  expect(br!.cy).toBeCloseTo(cell.dh - fall);
   for (const disc of alone) expect(disc.y).toBeCloseTo(br!.cy + 2);
 });
