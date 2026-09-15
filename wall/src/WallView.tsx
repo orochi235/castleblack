@@ -45,8 +45,7 @@ const NONE = { key: 'none', label: 'nothing' };
 const NO_ROWS = new Uint32Array(0);
 /** The most cells on screen that the loose and vector rungs will fetch for. */
 const MAX_THUMB_CELLS = 5_000;
-/** How much of the viewport's height a revealed cell fills at least. A search
- *  hit landing on a 32px cell in a wall of tens of thousands lands nowhere. */
+/** How much of the viewport's height a revealed cell fills at least. */
 const REVEAL_MIN_HEIGHT = 0.5;
 /** How far past each edge of the screen, in screens, pictures load ahead. */
 const THUMB_OVERSCAN = 0.5;
@@ -468,6 +467,8 @@ function WallViewBody<T extends Item>({
       camAnim.animate(centerReveal(rect, at, size, REVEAL_MIN_HEIGHT));
     }
     setExplicitCaret(position);
+    setOpened(null);
+    setOpenedRow(null);
     setCarded({ id, row, at: { x: size.width / 2, y: size.height / 2 } });
     return 'shown';
   }, [facts, laid, size, camAnim]);

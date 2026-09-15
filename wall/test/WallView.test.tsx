@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { defaultUrls } from '../src/urls';
-import { WallView, type WallHeader } from '../src/WallView';
+import { WallView, type RevealResult, type WallHeader } from '../src/WallView';
 import { SPEC, thing, type Thing } from './fixture';
 
 const urls = defaultUrls('/api');
@@ -122,7 +122,9 @@ async function mountRevealing(overrides: Partial<Parameters<typeof WallView<Thin
     ...overrides,
   });
   await screen.findByText('warning');
-  return { ...out, reveal: (id: string) => { let r = ''; act(() => { r = wall!.reveal(id); }); return r; } };
+  return { ...out, reveal: (id: string) => {
+    let r: RevealResult | undefined; act(() => { r = wall!.reveal(id); }); return r;
+  } };
 }
 
 it('reveals a drawn item and opens its card', async () => {
@@ -145,4 +147,27 @@ it('says an item is filtered when the selection hides it', async () => {
   });
   expect(reveal('d')).toBe('filtered');
   expect(reveal('a')).toBe('shown');
+});
+
+it('closes an open detail view before opening the revealed card', async () => {
+  const { reveal } = await mountRevealing({
+    renderDetail: (item) => <div>detail {item.id}</div>,
+    initial: { opened: 'c' },
+  });
+  await screen.findByText('detail c');
+  expect(reveal('b')).toBe('shown');
+  expect(await screen.findByText('card b')).toBeTruthy();
+  expect(screen.queryByText('detail c')).toBeNull();
+});
+
+it('reveals by row, not by draw position, under a sort', async () => {
+  const { reveal } = await mountRevealing({
+    initial: { selection: { sort: 'score' } },
+    fetchItems: vi.fn(() => Promise.resolve({
+      items: [thing('a', 0, { score: 1 }), thing('b', 1, { score: 9 }), thing('c', 2, { score: 5 })],
+      version: 'v1',
+    })),
+  });
+  expect(reveal('a')).toBe('shown');
+  expect(await screen.findByText('card a')).toBeTruthy();
 });
