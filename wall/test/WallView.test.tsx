@@ -75,7 +75,22 @@ it('hands a header function the slots, and lets it change the slot', async () =>
   });
   await screen.findByText('on north of 2');
   act(() => wall!.setSlot('south'));
+  await screen.findByText('on south of 2');
   await waitFor(() => expect(fetchItems).toHaveBeenCalledWith('south', undefined));
+});
+
+it('keeps a host-picked slot when the first slots poll lands after it', async () => {
+  let wall: WallHeader | undefined;
+  let resolveSlots!: (v: { slot: string; n: number }[]) => void;
+  const slotsPromise = new Promise<{ slot: string; n: number }[]>((resolve) => { resolveSlots = resolve; });
+  const { fetchItems } = mount({
+    fetchSlots: vi.fn(() => slotsPromise),
+    header: (w) => { wall = w; return <span>header</span>; },
+  });
+  act(() => wall!.setSlot('south'));
+  await waitFor(() => expect(fetchItems).toHaveBeenCalledWith('south', undefined));
+  await act(async () => { resolveSlots([{ slot: 'north', n: 3 }, { slot: 'south', n: 1 }]); await slotsPromise; });
+  expect(fetchItems).not.toHaveBeenCalledWith('north', undefined);
 });
 
 it('still renders a plain header node', async () => {
@@ -90,8 +105,10 @@ it('draws its own slot picker by default', async () => {
 });
 
 it('draws no slot picker when the host takes it over', async () => {
-  const { fetchSlots } = mount({ defaultSlot: 'north', slotPicker: false });
-  await waitFor(() => expect(fetchSlots).toHaveBeenCalled());
-  await screen.findByText('warning');
+  mount({
+    defaultSlot: 'north', slotPicker: false,
+    header: (w) => <span>{w.slots.length} slots</span>,
+  });
+  await screen.findByText('1 slots');
   expect(document.querySelector('.wall-slot')).toBeNull();
 });

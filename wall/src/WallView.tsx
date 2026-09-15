@@ -66,7 +66,8 @@ export interface WallViewState {
  *  selection, or not in the drawn slot at all. */
 export type RevealResult = 'shown' | 'filtered' | 'absent';
 
-/** The slot state a host's header controls read and drive. */
+/** The slot state a host's header controls read and drive. `slots` is empty,
+ *  and `slot` may be `''`, until the host's list arrives. */
 export interface WallHeader {
   slots: { slot: string; n: number }[];
   slot: string;
@@ -86,8 +87,9 @@ export interface WallViewProps<T extends Item> {
   storageKey: string;
   cssRoot?: string;
   pages?: ComponentProps<typeof LabShell>['pages'];
-  /** Controls between the slot picker and the panels toggle. A function gets
-   *  the slot state and `reveal`, for a host drawing its own picker or search. */
+  /** Controls before the panels toggle, after the slot picker when it is
+   *  drawn. A function gets the slot state and `reveal`, for a host drawing
+   *  its own picker or search. Not drawn when `compact`. */
   header?: ReactNode | ((wall: WallHeader) => ReactNode);
   /** False drops the built-in slot select, for a host that draws its own. */
   slotPicker?: boolean;
@@ -230,6 +232,9 @@ function WallViewBody<T extends Item>({
   // Polled: a slot appears when the host indexes it. A later poll never moves
   // anyone off the slot they are looking at.
   const opens = useRef(!!slot);
+  // A reader who picks a slot before the first poll resolves must not be
+  // moved back off it once that poll lands.
+  const chooseSlot = useCallback((s: string) => { opens.current = true; setSlot(s); }, []);
   useEffect(() => {
     let live = true;
     const load = () => void fetchSlots().then((got) => {
@@ -455,14 +460,15 @@ function WallViewBody<T extends Item>({
                   {slotPicker && slots.length > 0 && (
                     <label className="wall-slot">
                       <span>slot</span>
-                      <select value={slot} onChange={(e) => setSlot(e.target.value)}>
+                      <select value={slot} onChange={(e) => chooseSlot(e.target.value)}>
                         {slots.map((s) => (
                           <option key={s.slot} value={s.slot}>{s.slot} ({s.n.toLocaleString()})</option>
                         ))}
                       </select>
                     </label>
                   )}
-                  {typeof header === 'function' ? header({ slots, slot, setSlot, reveal }) : header}
+                  {typeof header === 'function'
+                    ? header({ slots, slot, setSlot: chooseSlot, reveal }) : header}
                   <ToggleBar mode="multiple" size="sm" variant="minimal" ariaLabel="Panels"
                              items={[{ value: 'legend', label: 'Legend' }]}
                              value={legendOpen ? ['legend'] : []}
