@@ -6,10 +6,6 @@
   max-height: calc(100% - 16px);
   box-sizing: border-box;
   padding: 0.6rem 0.8rem;
-  /* Over the wall's own ground: a theme's raised surface can be translucent,
-   * and a busy wall reads straight through it. */
-  background: linear-gradient(var(--wzl-surface-raised), var(--wzl-surface-raised)),
-              var(--wzl-surface-sunken);
   color: var(--wzl-fg);
   border: var(--wzl-border-w) solid var(--wzl-border);
   border-radius: var(--wzl-radius-md);
@@ -20,3 +16,53 @@
   gap: 0.4rem;
   overflow: auto;
 }
+
+/* Over the wall's own ground: a theme's surface tokens can be translucent, and
+ * a busy wall reads straight through them. `Canvas` follows the theme's
+ * color-scheme, so the base underneath is opaque without naming a color. */
+.wall-card:not(.wall-card--framed),
+.wall-card__pane,
+.wall-card__details {
+  background-color: Canvas;
+  background-image:
+    linear-gradient(var(--wzl-surface-raised), var(--wzl-surface-raised)),
+    linear-gradient(var(--wzl-surface-sunken), var(--wzl-surface-sunken));
+}
+
+/* The frame is the four panes around the opening; the card itself paints
+ * nothing, so the cell shows through the middle. */
+.wall-card--framed {
+  width: var(--card-w);
+  height: var(--card-h);
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+  display: grid;
+  grid-template-columns: var(--card-pad) var(--open-w) 1fr;
+  grid-template-rows: var(--card-pad) var(--open-h) var(--card-pad);
+}
+
+.wall-card--left { grid-template-columns: 1fr var(--open-w) var(--card-pad); }
+
+.wall-card__pane--top { grid-area: 1 / 1 / 2 / 4; }
+.wall-card__pane--bottom { grid-area: 3 / 1 / 4 / 4; }
+.wall-card__pane--side { grid-area: 2 / 1 / 3 / 2; }
+
+.wall-card__opening {
+  grid-area: 2 / 2 / 3 / 3;
+  /* A click, a double click and a drag belong to the cell underneath. */
+  pointer-events: none;
+}
+
+.wall-card__details {
+  grid-area: 2 / 3 / 3 / 4;
+  box-sizing: border-box;
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow: auto;
+}
+
+.wall-card--left .wall-card__pane--side { grid-area: 2 / 3 / 3 / 4; }
+.wall-card--left .wall-card__details { grid-area: 2 / 1 / 3 / 2; }

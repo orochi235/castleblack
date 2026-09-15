@@ -1,7 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { CARD_HEIGHT, CARD_MARGIN, CARD_OFFSET, CARD_WIDTH, ItemCard, placeCard }
-  from '../src/ItemCard';
+import {
+  CARD_DETAILS, CARD_HEIGHT, CARD_MARGIN, CARD_OFFSET, CARD_PAD, CARD_WIDTH, ItemCard, frameCard,
+  placeCard,
+} from '../src/ItemCard';
 
 afterEach(cleanup);
 
@@ -84,4 +86,70 @@ it('stops listening once it is gone', () => {
   fireEvent.keyDown(window, { key: 'Escape' });
   fireEvent.pointerDown(document.body);
   expect(onClose).not.toHaveBeenCalled();
+});
+
+const CELL = { x: 300, y: 200, w: 128, h: 128 };
+const COLUMN = CARD_DETAILS + 2 * CARD_PAD;
+
+it('opens on the cell it frames, whichever side the details take', () => {
+  for (const viewport of [VIEWPORT, { width: 520, height: 800 }]) {
+    expect(frameCard(CELL, viewport).opening)
+      .toEqual({ x: CELL.x, y: CELL.y, width: CELL.w, height: CELL.h });
+  }
+});
+
+it('frames the cell with a pad on every side and the details past one of them', () => {
+  const frame = frameCard(CELL, VIEWPORT);
+  expect(frame.side).toBe('right');
+  expect(frame).toMatchObject({
+    x: CELL.x - CARD_PAD, y: CELL.y - CARD_PAD,
+    width: CELL.w + COLUMN + CARD_PAD, height: CELL.h + 2 * CARD_PAD,
+  });
+  // The details column sits between the opening and the frame's right edge.
+  expect(frame.x + frame.width - (CELL.x + CELL.w)).toBe(COLUMN);
+});
+
+it('puts the details left of a cell with no room to its right', () => {
+  // The frame would need to reach 428 + 224 = 652, past this viewport.
+  const frame = frameCard(CELL, { width: 600, height: 800 });
+  expect(frame.side).toBe('left');
+  expect(frame.x).toBe(CELL.x - COLUMN);
+  expect(frame.opening.x).toBe(CELL.x);
+});
+
+it('keeps the details right when neither side has room, rather than sliding off the cell', () => {
+  // Too near the left edge for the column, in a viewport too narrow for it on the right.
+  expect(frameCard({ ...CELL, x: 100 }, { width: 400, height: 800 }).side).toBe('right');
+});
+
+const framed = (props: Partial<Parameters<typeof ItemCard>[0]> = {}) => (
+  <ItemCard cell={CELL} viewport={VIEWPORT} onClose={() => {}} {...props}>
+    {props.children ?? <p>item seven</p>}
+  </ItemCard>
+);
+
+it('draws an opening the size of the cell, with the details beside it', () => {
+  const { container } = render(framed());
+  const el = container.querySelector('.wall-card') as HTMLElement;
+  expect(el.className).toContain('wall-card--framed');
+  expect(pos(el)).toEqual({ x: CELL.x - CARD_PAD, y: CELL.y - CARD_PAD });
+  expect(el.style.getPropertyValue('--open-w')).toBe(`${CELL.w}px`);
+  expect(el.style.getPropertyValue('--open-h')).toBe(`${CELL.h}px`);
+  expect(el.style.getPropertyValue('--card-w')).toBe(`${CELL.w + COLUMN + CARD_PAD}px`);
+  expect(el.style.getPropertyValue('--card-h')).toBe(`${CELL.h + 2 * CARD_PAD}px`);
+  expect(container.querySelector('.wall-card__details')!.textContent).toBe('item seven');
+});
+
+it('counts a press in the opening as a press on itself, so the cell stays framed', () => {
+  const onClose = vi.fn();
+  const { container } = render(framed({ onClose }));
+  const opening = container.querySelector('.wall-card__opening') as HTMLElement;
+  // jsdom lays nothing out; the opening is where the frame put it.
+  vi.spyOn(opening, 'getBoundingClientRect').mockReturnValue(
+    { left: CELL.x, top: CELL.y, right: CELL.x + CELL.w, bottom: CELL.y + CELL.h,
+      width: CELL.w, height: CELL.h, x: CELL.x, y: CELL.y, toJSON() { return {}; } } as DOMRect);
+  fireEvent.pointerDown(document.body, { clientX: CELL.x + 10, clientY: CELL.y + 10 });
+  expect(onClose).not.toHaveBeenCalled();
+  fireEvent.pointerDown(document.body, { clientX: CELL.x - 40, clientY: CELL.y + 10 });
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

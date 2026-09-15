@@ -57,7 +57,9 @@ export interface WallProps<T extends Item> {
   explicitCaret: number | null;
   onExplicitCaretChange: (position: number | null) => void;
   onPan: (next: View) => void;
-  onPick: (row: number, at: { x: number; y: number }) => void;
+  /** `position` is where the row sits in `laid.order`, which the hit test
+   *  already knows: a host anchoring to the cell needs it to find the rect. */
+  onPick: (row: number, at: { x: number; y: number }, position: number) => void;
   /** A drag has passed the threshold and the wall moves under anything
    *  anchored to it. */
   onDragStart?: () => void;
@@ -424,7 +426,7 @@ export function Wall<T extends Item>({
       if (!rect || row === undefined) return;
       const [sx, sy] = worldToScreen(rect.x + rect.w / 2, rect.y + rect.h / 2,
                                      viewToTransform(camRef.current));
-      onPick(row, { x: sx, y: sy });
+      onPick(row, { x: sx, y: sy }, caretPosition);
       return;
     }
     if (e.key === 'Escape') onExplicitCaretChange(null);
@@ -460,7 +462,7 @@ export function Wall<T extends Item>({
             const hit = hitTest(e);
             if (!hit) return;
             if (hit.badge && followLink(hit.position, hit.badge.tag)) return;
-            onPick(hit.row, hit.at);
+            onPick(hit.row, hit.at, hit.position);
           }}
           onDoubleClick={(e) => {
             const hit = hitTest(e);
