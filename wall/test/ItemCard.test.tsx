@@ -3,22 +3,20 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   CARD_DETAILS, CARD_HEIGHT, CARD_MARGIN, CARD_OFFSET, CARD_PAD, CARD_WIDTH, ItemCard, frameCard,
-  placeCard,
+  placeCard, type ItemCardBase,
 } from '../src/ItemCard';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const VIEWPORT = { width: 1000, height: 800 };
 
 /** Everything but the anchor, which each helper below pins itself: the props
- *  are a union, so `at` and `cell` cannot travel together. */
-interface Extra {
-  viewport?: { width: number; height: number };
-  onClose?: () => void;
-  onHoverChange?: (over: boolean) => void;
-  label?: string;
-  children?: ReactNode;
-}
+ *  are a union, so `at` and `cell` cannot travel together. Partial, so a
+ *  helper can be called bare, and derived, so a new prop arrives here too. */
+type Extra = Partial<Omit<ItemCardBase, 'children'>> & { children?: ReactNode };
 
 const card = ({ at = { x: 100, y: 100 }, viewport = VIEWPORT, onClose = () => {}, children,
                 ...rest }: Extra & { at?: { x: number; y: number } } = {}) => (
@@ -141,14 +139,24 @@ const framed = ({ cell = CELL, viewport = VIEWPORT, onClose = () => {}, children
   </ItemCard>
 );
 
-/** jsdom lays nothing out; the opening is where the frame put it. */
-const pinOpening = (container: HTMLElement) => {
-  const opening = container.querySelector('.wall-card__opening') as HTMLElement;
-  vi.spyOn(opening, 'getBoundingClientRect').mockReturnValue(
-    { left: CELL.x, top: CELL.y, right: CELL.x + CELL.w, bottom: CELL.y + CELL.h,
-      width: CELL.w, height: CELL.h, x: CELL.x, y: CELL.y, toJSON() { return {}; } } as DOMRect);
-  return opening;
-};
+const CELL_RECT = {
+  left: CELL.x, top: CELL.y, right: CELL.x + CELL.w, bottom: CELL.y + CELL.h,
+  width: CELL.w, height: CELL.h, x: CELL.x, y: CELL.y, toJSON() { return {}; },
+} as DOMRect;
+
+/** The card measures its opening as it mounts and jsdom lays nothing out, so
+ *  the measurement is pinned before it renders. The canvas comes with it: what
+ *  shows through the opening is the wall, and only events on it count as the
+ *  cell's. */
+function renderFramed(props: Extra = {}) {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(CELL_RECT);
+  const view = render(framed(props));
+  const canvas = document.createElement('canvas');
+  view.container.append(canvas);
+  return { ...view, canvas };
+}
+
+const inOpening = { clientX: CELL.x + 10, clientY: CELL.y + 10 };
 
 it('draws an opening the size of the cell, with the details beside it', () => {
   const { container } = render(framed());
@@ -164,21 +172,43 @@ it('draws an opening the size of the cell, with the details beside it', () => {
 
 it('counts a press in the opening as a press on itself, so the cell stays framed', () => {
   const onClose = vi.fn();
-  const { container } = render(framed({ onClose }));
-  pinOpening(container);
-  fireEvent.pointerDown(document.body, { clientX: CELL.x + 10, clientY: CELL.y + 10 });
+  const { canvas } = renderFramed({ onClose });
+  fireEvent.pointerDown(canvas, inOpening);
   expect(onClose).not.toHaveBeenCalled();
-  fireEvent.pointerDown(document.body, { clientX: CELL.x - 40, clientY: CELL.y + 10 });
+  fireEvent.pointerDown(canvas, { clientX: CELL.x - 40, clientY: CELL.y + 10 });
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+it('closes on a press over the opening that landed on a panel instead of the wall', () => {
+  const onClose = vi.fn();
+  const { container } = renderFramed({ onClose });
+  const panel = document.createElement('div');
+  container.append(panel);
+  fireEvent.pointerDown(panel, inOpening);
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
 it('reads the pointer over the opening as over itself, so a zoom spares it', () => {
   const onHoverChange = vi.fn();
-  const { container } = render(framed({ onHoverChange }));
-  pinOpening(container);
+  const { canvas } = renderFramed({ onHoverChange });
   // Over the cell the frame surrounds: the card is the one being read.
-  fireEvent.pointerMove(document.body, { clientX: CELL.x + 10, clientY: CELL.y + 10 });
+  fireEvent.pointerMove(canvas, inOpening);
   expect(onHoverChange).toHaveBeenLastCalledWith(true);
-  fireEvent.pointerMove(document.body, { clientX: CELL.x - 60, clientY: CELL.y + 10 });
+  fireEvent.pointerMove(canvas, { clientX: CELL.x - 60, clientY: CELL.y + 10 });
   expect(onHoverChange).toHaveBeenLastCalledWith(false);
+});
+
+it('stops watching the opening once it is gone', () => {
+  const onHoverChange = vi.fn();
+  const onClose = vi.fn();
+  const { canvas, unmount } = renderFramed({ onHoverChange, onClose });
+  fireEvent.pointerMove(canvas, inOpening);
+  expect(onHoverChange).toHaveBeenLastCalledWith(true);
+  unmount();
+  // Hovered on the way out: whatever a host hung on it must not stay armed.
+  expect(onHoverChange).toHaveBeenLastCalledWith(false);
+  fireEvent.pointerMove(canvas, inOpening);
+  fireEvent.pointerDown(canvas, inOpening);
+  expect(onHoverChange).toHaveBeenCalledTimes(2);
+  expect(onClose).not.toHaveBeenCalled();
 });

@@ -63,7 +63,7 @@ export function frameCard(cell: Rect, viewport: Size,
   };
 }
 
-interface ItemCardBase {
+export interface ItemCardBase {
   viewport: Size;
   onClose: () => void;
   /** Whether the pointer is over the card: a zoom drops the card, except the
@@ -77,18 +77,12 @@ interface ItemCardBase {
 export type ItemCardProps = ItemCardBase
   & ({ at: Point; cell?: undefined } | { cell: Rect; at?: undefined });
 
-const ORIGIN: Point = { x: 0, y: 0 };
-
 export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = 'item card',
                            children }: ItemCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const openingRef = useRef<HTMLDivElement>(null);
+  const openRect = useRef<DOMRect | null>(null);
   const frame = useMemo(() => (cell ? frameCard(cell, viewport) : null), [cell, viewport]);
-
-  const inOpening = useCallback((x: number, y: number) => {
-    const open = openingRef.current?.getBoundingClientRect();
-    return !!open && x >= open.left && x <= open.right && y >= open.top && y <= open.bottom;
-  }, []);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -101,15 +95,27 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
       el.style.setProperty('--card-h', `${frame.height}px`);
       el.style.setProperty('--open-w', `${frame.opening.width}px`);
       el.style.setProperty('--open-h', `${frame.opening.height}px`);
-      return;
+    } else {
+      const { x, y } = placeCard(at ?? { x: 0, y: 0 }, viewport, {
+        width: el.offsetWidth || CARD_WIDTH,
+        height: el.offsetHeight || CARD_HEIGHT,
+      });
+      el.style.setProperty('--card-x', `${x}px`);
+      el.style.setProperty('--card-y', `${y}px`);
     }
-    const { x, y } = placeCard(at ?? ORIGIN, viewport, {
-      width: el.offsetWidth || CARD_WIDTH,
-      height: el.offsetHeight || CARD_HEIGHT,
-    });
-    el.style.setProperty('--card-x', `${x}px`);
-    el.style.setProperty('--card-y', `${y}px`);
+    // Measured once the frame moves, never per pointer event: the gesture that
+    // pans the wall must not pay for a layout on every move.
+    openRect.current = openingRef.current?.getBoundingClientRect() ?? null;
   }, [at, frame, viewport]);
+
+  /** Whether an event landed on the cell showing through the opening. The
+   *  target settles what is on top: a panel drawn over the cell is not it. */
+  const onCell = useCallback((e: PointerEvent) => {
+    const open = openRect.current;
+    if (!open || (e.target as Element | null)?.tagName !== 'CANVAS') return false;
+    return e.clientX >= open.left && e.clientX <= open.right
+        && e.clientY >= open.top && e.clientY <= open.bottom;
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -117,7 +123,7 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
       if (ref.current?.contains(e.target as Node)) return;
       // The opening is a hole: a press there is a press on the cell this card
       // is framing, not one outside it.
-      if (inOpening(e.clientX, e.clientY)) return;
+      if (onCell(e)) return;
       onClose();
     };
     window.addEventListener('keydown', onKey);
@@ -127,7 +133,7 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPress, true);
     };
-  }, [onClose, inOpening]);
+  }, [onClose, onCell]);
 
   const over = useRef(false);
   const hover = useRef(onHoverChange);
@@ -144,13 +150,13 @@ export function ItemCard({ at, cell, viewport, onClose, onHoverChange, label = '
     // The pointer over the opening has left the frame's own box, and enter and
     // leave alone would call the card being read unhovered.
     const onMove = (e: PointerEvent) =>
-      report(!!ref.current?.contains(e.target as Node) || inOpening(e.clientX, e.clientY));
+      report(!!ref.current?.contains(e.target as Node) || onCell(e));
     document.addEventListener('pointermove', onMove, true);
     return () => {
       document.removeEventListener('pointermove', onMove, true);
       report(false);
     };
-  }, [framed, inOpening, report]);
+  }, [framed, onCell, report]);
 
   const className = ['wall-card', frame ? 'wall-card--framed' : '',
                      frame?.side === 'left' ? 'wall-card--left' : ''].filter(Boolean).join(' ');
